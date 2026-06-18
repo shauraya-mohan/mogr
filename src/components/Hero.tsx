@@ -15,7 +15,7 @@ export default function Hero() {
           wardrobe — and a preview of the upgraded you.
         </p>
         <div className="reveal-up flex items-center gap-[clamp(16px,2vw,28px)] flex-wrap">
-          <Button href="#start" size="lg">
+          <Button href="/scan" size="lg">
             Start your scan
           </Button>
           <a className="hero-textlink" href="#how">

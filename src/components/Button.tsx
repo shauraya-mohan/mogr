@@ -9,10 +9,11 @@ interface BaseProps {
   /** Show the bronze accent dot (brand device). On by default. */
   dot?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 /**
- * Either a link (`href`) or an action (`onClick`).
+ * Either a link (`href`) or an action (`onClick` / form `submit`).
  *
  * This is the main interactivity seam: today every CTA is an anchor to a
  * `#hash`. To make a button *do* something later (open the scan flow, push a
@@ -27,7 +28,7 @@ type ButtonProps =
     })
   | (BaseProps & {
       href?: undefined;
-      onClick: () => void;
+      onClick?: () => void;
       type?: "button" | "submit";
     });
 
@@ -44,6 +45,7 @@ export default function Button({
   className,
   href,
   onClick,
+  disabled,
   ...rest
 }: ButtonProps) {
   const classes = ["btn", sizeClass[size], className].filter(Boolean).join(" ");
@@ -65,7 +67,12 @@ export default function Button({
 
   const type = "type" in rest && rest.type ? rest.type : "button";
   return (
-    <button className={classes} onClick={onClick} type={type}>
+    <button
+      className={classes}
+      onClick={onClick}
+      type={type}
+      disabled={disabled}
+    >
       {inner}
     </button>
   );

@@ -23,7 +23,7 @@ export default function Cta() {
         </span>
       </h2>
       <div className="mt-[clamp(36px,6vh,60px)] flex justify-center gap-4 flex-wrap">
-        <Button href="#start" size="lg">
+        <Button href="/scan" size="lg">
           Start your scan
         </Button>
       </div>

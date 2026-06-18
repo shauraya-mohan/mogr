@@ -16,7 +16,7 @@ export default function SiteHeader() {
   return (
     <header className="site-header" id="siteHeader" data-screen-label="header">
       <div className="container-page flex items-center justify-between gap-6">
-        <Link className="brand" href="#top" aria-label="mogr home">
+        <Link className="brand" href="/" aria-label="mogr home">
           {/* Logo: cropped horizontal lockup (mark + wordmark). Do not redraw. */}
           <Image
             className="logo-light"
@@ -49,7 +49,7 @@ export default function SiteHeader() {
             </Link>
           ))}
           <ThemeToggle />
-          <Button href="#start" size="sm">
+          <Button href="/scan" size="sm">
             start scan
           </Button>
         </nav>

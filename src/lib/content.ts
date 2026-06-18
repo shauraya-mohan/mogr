@@ -19,8 +19,8 @@ export interface NavLinkItem {
 }
 
 export const NAV_LINKS: NavLinkItem[] = [
-  { label: "log in", href: "#login", hideOnMobile: true },
-  { label: "dashboard", href: "#dashboard", hideOnMobile: true },
+  { label: "log in", href: "/login", hideOnMobile: true },
+  { label: "dashboard", href: "/dashboard", hideOnMobile: true },
 ];
 
 export interface Category {
@@ -131,10 +131,10 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     heading: "Product",
     links: [
-      { label: "Start scan", href: "#start" },
+      { label: "Start scan", href: "/scan" },
       { label: "What we read", href: "#categories" },
       { label: "How it works", href: "#how" },
-      { label: "Dashboard", href: "#dashboard" },
+      { label: "Dashboard", href: "/dashboard" },
     ],
   },
   {
