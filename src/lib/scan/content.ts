@@ -68,6 +68,8 @@ export const AUTH = {
   signUpEyebrow: "get started",
   signInTitle: "Log in.",
   signUpTitle: "Create account.",
+  nameLabel: "Name",
+  ageLabel: "Age",
   emailLabel: "Email",
   passwordLabel: "Password",
   signIn: "Log in",

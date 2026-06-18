@@ -1,0 +1,106 @@
+import Link from "next/link";
+import { NAV_ITEMS } from "@/lib/dashboard/data";
+import { NAV_ICONS } from "@/components/dashboard/icons";
+import { createClient } from "@/lib/supabase/server";
+
+function initialsFrom(name: string | null, email: string | null): string {
+  if (name) {
+    return name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("");
+  }
+  return email?.[0]?.toUpperCase() ?? "·";
+}
+
+/**
+ * Console shell for logged-in sections (dashboard, and future scans/routine/etc).
+ * Dark sidebar in both themes (brand chrome); the content area follows the theme.
+ * Nav items are intentionally inert for now — wired up when those routes exist.
+ */
+export default async function ConsoleLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let initials = "·";
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    initials = initialsFrom(data?.full_name ?? null, user.email ?? null);
+  }
+
+  return (
+    <div className="min-h-screen bg-bone text-ink">
+      {/* Mobile top bar */}
+      <div className="lg:hidden sticky top-0 z-40 flex h-14 items-center justify-between bg-[#1A1A16] px-5 text-[#F4F2EC]">
+        <Link href="/" className="font-display text-[20px] font-bold tracking-[-0.03em]">
+          mogr<span className="text-bronze">.</span>
+        </Link>
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-bronze font-mono text-[11px] font-bold text-[#1A1A16]">
+          {initials}
+        </span>
+      </div>
+
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[256px] flex-col border-r border-white/[0.06] bg-[#1A1A16] text-[#F1EEE6] lg:flex">
+        <div className="px-7 pb-7 pt-8">
+          <Link
+            href="/"
+            className="font-display text-[26px] font-bold tracking-[-0.03em] text-[#F4F2EC]"
+          >
+            mogr<span className="text-bronze">.</span>
+          </Link>
+        </div>
+
+        <nav className="flex-1 space-y-1 px-4">
+          {NAV_ITEMS.map((item, i) => {
+            const active = i === 0; // "dashboard" — only built route for now
+            const Icon = NAV_ICONS[item];
+            return (
+              <button
+                key={item}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 font-mono text-[14px] tracking-[0.01em] transition-colors ${
+                  active
+                    ? "bg-white/[0.07] text-[#F4F2EC]"
+                    : "text-[#8E897D] hover:text-[#F4F2EC]"
+                }`}
+              >
+                {Icon && <Icon className="h-[18px] w-[18px] shrink-0" />}
+                {item}
+              </button>
+            );
+          })}
+        </nav>
+
+        <button
+          type="button"
+          className="m-4 flex items-center gap-3 rounded-[10px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-bronze font-mono text-[12px] font-bold text-[#1A1A16]">
+            {initials}
+          </span>
+          <span className="font-mono text-[14px] text-[#8E897D]">profile</span>
+        </button>
+      </aside>
+
+      {/* Main */}
+      <main className="lg:ml-[256px]">
+        <div className="mx-auto max-w-[1080px] px-[clamp(20px,4vw,56px)] py-[clamp(28px,5vh,56px)]">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}

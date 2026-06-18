@@ -17,6 +17,8 @@ export default function LoginPage() {
   const next = searchParams.get("next") || "/scan";
 
   const [mode, setMode] = useState<Mode>("signin");
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,8 @@ export default function LoginPage() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+          // Read by the handle_new_user() trigger to populate `profiles`.
+          data: { full_name: name.trim(), age },
         },
       });
       if (signUpError) {
@@ -107,6 +111,39 @@ export default function LoginPage() {
             onSubmit={handleSubmit}
             className="bg-cloud border border-[var(--ink-08)] rounded-[18px] p-[clamp(24px,4vw,36px)] grid gap-5"
           >
+            {mode === "signup" && (
+              <div className="grid grid-cols-[1.7fr_1fr] gap-4">
+                <label className="grid gap-2">
+                  <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+                    {AUTH.nameLabel}
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+                    {AUTH.ageLabel}
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    min={13}
+                    max={120}
+                    inputMode="numeric"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                  />
+                </label>
+              </div>
+            )}
+
             <label className="grid gap-2">
               <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
                 {AUTH.emailLabel}
