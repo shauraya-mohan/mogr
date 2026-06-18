@@ -777,3 +777,30 @@
   .how-step { position: relative; opacity: 1 !important; pointer-events: auto; margin-bottom: 60px; }
   .how-stage { display: block; }
 }
+
+/* ============================================================
+   FACE-SCAN — scanner reticle + sweeping bronze line
+   Used by CameraCapture (active scan) and the guide preview.
+   ============================================================ */
+@keyframes mogrScanSweep {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+.scan-sweep {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  pointer-events: none;
+  animation: mogrScanSweep 1.7s var(--ease) infinite alternate;
+}
+.scan-sweep__line {
+  height: 2px;
+  background: var(--bronze);
+  box-shadow: 0 0 18px 2px var(--bronze), 0 0 44px 8px rgba(176,122,60,0.45);
+}
+.scan-sweep__glow {
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(176,122,60,0.30), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-sweep { animation: none; top: 50%; }
+}

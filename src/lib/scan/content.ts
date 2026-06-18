@@ -29,10 +29,17 @@ export const SCAN_CAPTURE = {
   eyebrow: "capture",
   title: "Take your scan.",
   capture: "Capture photo",
+  scanning: "Scanning…",
   upload: "Upload a photo instead",
   useCamera: "Use camera instead",
   cameraError:
     "Camera access was denied or unavailable. Upload a photo to continue.",
+
+  // Side panel (fills the wide-screen space next to the camera)
+  sideEyebrow: "groommax",
+  sideTitle: "A clean frame, a sharper read",
+  sideBody:
+    "Line up like you would for a fresh cut — straight on, good light, nothing hiding your face. One pass reads your skin, hair and beard.",
 } as const;
 
 export const SCAN_REVIEW = {
