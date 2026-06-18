@@ -69,3 +69,21 @@ export const AUTH = {
   toggleSignIn: "Already have an account? Log in",
   signOut: "Log out",
 } as const;
+
+export const VERIFY = {
+  waitingEyebrow: "one more step",
+  waitingTitle: "Check your inbox.",
+  waitingBody:
+    "We sent a confirmation link to your email. Click it to verify your account and start your scan.",
+  waitingHint: "This page updates automatically once you verify.",
+
+  successEyebrow: "you're verified",
+  successTitle: "You're in.",
+  successBody: (seconds: number) =>
+    `Redirecting to your scan in ${seconds} second${seconds !== 1 ? "s" : ""}…`,
+
+  errorEyebrow: "something went wrong",
+  errorTitle: "Verification failed.",
+  backToLogin: "← Back to login",
+};
+

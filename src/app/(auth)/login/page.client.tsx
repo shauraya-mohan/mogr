@@ -30,12 +30,25 @@ export default function LoginPage() {
     const supabase = createClient();
 
     if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+        },
+      });
       if (signUpError) {
         setError(signUpError.message);
         setLoading(false);
         return;
       }
+      // Stash credentials so the verify page can poll sign-in to detect
+      // cross-device email confirmation. Cleared after successful sign-in.
+      sessionStorage.setItem("mogr-verify-email", email);
+      sessionStorage.setItem("mogr-verify-pw", password);
+      // Redirect to the verification waiting page.
+      router.push("/verify");
+      return;
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
