@@ -74,8 +74,16 @@ export const VERIFY = {
   waitingEyebrow: "one more step",
   waitingTitle: "Check your inbox.",
   waitingBody:
-    "We sent a confirmation link to your email. Click it to verify your account and start your scan.",
-  waitingHint: "This page updates automatically once you verify.",
+    "We emailed you a 6-digit code and a confirmation link. Enter the code below — it works from any device — or open the link on this computer.",
+  waitingHint: "Verified on your phone? Just type the code here.",
+
+  // Code-entry form
+  emailLabel: "Email",
+  codeLabel: "6-digit code",
+  codePlaceholder: "000000",
+  verifyButton: "Verify & continue",
+  needEmail: "Enter the email you signed up with.",
+  codeInvalid: "Enter the 6-digit code from your email.",
 
   successEyebrow: "you're verified",
   successTitle: "You're in.",

@@ -5,23 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
+import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
 import { VERIFY } from "@/lib/scan/content";
 
 /**
  * Email verification waiting page.
  *
- * After signup we land here. Detection of "email confirmed" is done WITHOUT
- * storing any credentials:
- *   1. onAuthStateChange — fires SIGNED_IN if confirmation happens in this
- *      browser (the /auth/confirm route sets the session cookie).
- *   2. A periodic getSession() poll + a re-check whenever the tab regains
- *      focus — catches the session the moment the confirm cookie lands, even
- *      if the link was opened in another tab of the same browser.
- *
- * If the user confirms on a different device, this tab won't auto-advance
- * (there's no session here to detect) — they just sign in via the link/login,
- * which the "back to login" fallback covers.
+ * Two ways to get verified, no credentials stored:
+ *   1. 6-digit code entry (works cross-device) — read the code from the email
+ *      on any device, type it here; verifyOtp creates the session on THIS
+ *      device, so we advance directly. This is the reliable path in local dev,
+ *      where the magic link points at localhost and can't be opened elsewhere.
+ *   2. Magic link on the same browser — the /auth/confirm route sets the
+ *      session cookie; we pick it up via a getSession() poll + onAuthStateChange
+ *      + a focus re-check.
  */
 export default function VerifyPage() {
   const router = useRouter();
@@ -30,6 +28,11 @@ export default function VerifyPage() {
 
   const [verified, setVerified] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const [email, setEmail] = useState("");
+  const [hadStoredEmail, setHadStoredEmail] = useState(false);
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
   const doneRef = useRef(false);
 
   const markVerified = useCallback(() => {
@@ -39,7 +42,16 @@ export default function VerifyPage() {
     setVerified(true);
   }, []);
 
-  // Detect confirmation: auth events + session poll + focus re-check.
+  // Prefill the email captured at signup (non-sensitive).
+  useEffect(() => {
+    const stored = sessionStorage.getItem("mogr-verify-email");
+    if (stored) {
+      setEmail(stored);
+      setHadStoredEmail(true);
+    }
+  }, []);
+
+  // Passive detection for same-browser magic-link confirmation.
   useEffect(() => {
     if (errorParam) return;
     const supabase = createClient();
@@ -51,7 +63,7 @@ export default function VerifyPage() {
       if (session) markVerified();
     };
 
-    check(); // immediate
+    check();
     const poll = setInterval(check, 3000);
     const onVisible = () => {
       if (!document.hidden) check();
@@ -71,6 +83,34 @@ export default function VerifyPage() {
     };
   }, [errorParam, markVerified]);
 
+  // Verify the 6-digit code — creates the session on this device.
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setCodeError(null);
+    if (!email) {
+      setCodeError(VERIFY.needEmail);
+      return;
+    }
+    const token = code.replace(/\D/g, "");
+    if (token.length !== 6) {
+      setCodeError(VERIFY.codeInvalid);
+      return;
+    }
+    setSubmitting(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "signup",
+    });
+    if (error) {
+      setCodeError(error.message);
+      setSubmitting(false);
+      return;
+    }
+    markVerified(); // session is now set on this device
+  }
+
   // Once verified, count down and redirect to /scan.
   useEffect(() => {
     if (!verified) return;
@@ -82,6 +122,9 @@ export default function VerifyPage() {
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [verified, countdown, router]);
+
+  const inputClass =
+    "w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]";
 
   return (
     <div className="min-h-screen bg-bone text-ink flex flex-col">
@@ -147,7 +190,7 @@ export default function VerifyPage() {
             </>
           )}
 
-          {/* ── Waiting state ── */}
+          {/* ── Waiting state (code entry) ── */}
           {!errorParam && !verified && (
             <>
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-bronze/10 animate-pulse">
@@ -161,13 +204,51 @@ export default function VerifyPage() {
                 {VERIFY.waitingBody}
               </p>
 
-              <div className="flex items-center justify-center gap-2 mb-8">
-                <span className="w-2 h-2 rounded-full bg-bronze/40 animate-pulse" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 rounded-full bg-bronze/40 animate-pulse" style={{ animationDelay: "300ms" }} />
-                <span className="w-2 h-2 rounded-full bg-bronze/40 animate-pulse" style={{ animationDelay: "600ms" }} />
-              </div>
+              <form
+                onSubmit={handleVerifyCode}
+                className="bg-cloud border border-[var(--ink-08)] rounded-[18px] p-[clamp(20px,4vw,32px)] grid gap-4 text-left"
+              >
+                {!hadStoredEmail && (
+                  <label className="grid gap-2">
+                    <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+                      {VERIFY.emailLabel}
+                    </span>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                )}
+                <label className="grid gap-2">
+                  <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+                    {VERIFY.codeLabel}
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder={VERIFY.codePlaceholder}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                    className={`${inputClass} font-mono tracking-[0.4em] text-[20px] text-center`}
+                  />
+                </label>
 
-              <p className="font-mono text-[12px] text-stone mb-8">
+                {codeError && (
+                  <p className="text-[14px] text-bronze" role="alert">
+                    {codeError}
+                  </p>
+                )}
+
+                <Button type="submit" size="lg" className="w-full justify-center">
+                  {submitting ? "…" : VERIFY.verifyButton}
+                </Button>
+              </form>
+
+              <p className="font-mono text-[12px] text-stone mt-6 mb-6">
                 {VERIFY.waitingHint}
               </p>
 
