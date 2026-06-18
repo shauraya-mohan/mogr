@@ -98,11 +98,12 @@ export default function VerifyPage() {
     }
     setSubmitting(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "signup",
-    });
+    // The OTP type for a signup confirmation varies across Supabase versions
+    // ('signup' vs 'email'); try both so a valid code always verifies.
+    let { error } = await supabase.auth.verifyOtp({ email, token, type: "signup" });
+    if (error) {
+      ({ error } = await supabase.auth.verifyOtp({ email, token, type: "email" }));
+    }
     if (error) {
       setCodeError(error.message);
       setSubmitting(false);
@@ -155,7 +156,7 @@ export default function VerifyPage() {
           {/* ── Error state ── */}
           {errorParam && (
             <>
-              <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--ink-08)]">
+              <div className="mb-6 flex mx-auto items-center justify-center w-16 h-16 rounded-full bg-[var(--ink-08)]">
                 <span className="text-[28px]">✕</span>
               </div>
               <p className="eyebrow mb-4 justify-center">{VERIFY.errorEyebrow}</p>
@@ -177,7 +178,7 @@ export default function VerifyPage() {
           {/* ── Verified state ── */}
           {!errorParam && verified && (
             <>
-              <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-bronze/15">
+              <div className="mb-6 flex mx-auto items-center justify-center w-16 h-16 rounded-full bg-bronze/15">
                 <span className="text-[28px]">✓</span>
               </div>
               <p className="eyebrow mb-4 justify-center">{VERIFY.successEyebrow}</p>
@@ -193,7 +194,7 @@ export default function VerifyPage() {
           {/* ── Waiting state (code entry) ── */}
           {!errorParam && !verified && (
             <>
-              <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-bronze/10 animate-pulse">
+              <div className="mb-6 flex mx-auto items-center justify-center w-16 h-16 rounded-full bg-bronze/10 animate-pulse">
                 <span className="text-[28px]">✉</span>
               </div>
               <p className="eyebrow mb-4 justify-center">{VERIFY.waitingEyebrow}</p>

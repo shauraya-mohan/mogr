@@ -30,7 +30,7 @@ export default function LoginPage() {
     const supabase = createClient();
 
     if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -42,11 +42,16 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
+      // If email confirmation is disabled (e.g. local-dev auto-confirm),
+      // signUp returns a live session — go straight in. When confirmation is
+      // required (prod), session is null and we wait on the verify page.
+      if (data.session) {
+        router.push(next.startsWith("/") ? next : "/scan");
+        router.refresh();
+        return;
+      }
       // Remember the email for display on the verify page (non-sensitive).
-      // No password is stored — the verify page detects confirmation via the
-      // Supabase session, not by re-signing-in.
       sessionStorage.setItem("mogr-verify-email", email);
-      // Redirect to the verification waiting page.
       router.push("/verify");
       return;
     } else {
