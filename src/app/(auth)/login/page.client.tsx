@@ -42,10 +42,10 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      // Stash credentials so the verify page can poll sign-in to detect
-      // cross-device email confirmation. Cleared after successful sign-in.
+      // Remember the email for display on the verify page (non-sensitive).
+      // No password is stored — the verify page detects confirmation via the
+      // Supabase session, not by re-signing-in.
       sessionStorage.setItem("mogr-verify-email", email);
-      sessionStorage.setItem("mogr-verify-pw", password);
       // Redirect to the verification waiting page.
       router.push("/verify");
       return;
