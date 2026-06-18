@@ -50,9 +50,13 @@ src/
     content.ts        All copy/data, typed — swap for a CMS/API later
     useLandingMotion.ts  GSAP + ScrollTrigger + Lenis (reveals, pins, scroll state)
     global.d.ts       Window globals the motion layer exposes
-public/assets/        Logos (light/dark) + hero.mp4
-reference/            Original Claude Design prototype (HTML/CSS/JS) — visual + motion source of truth
+public/assets/        Logos (light/dark) + hero/preview videos
+supabase/migrations/  SQL schema (profiles + per-feature tables, RLS)
 ```
+
+> The original Claude Design prototype has been fully ported; the live code +
+> [`DESIGN.md`](./DESIGN.md) are the source of truth. The prototype remains in
+> git history (commit `472805d`) if ever needed.
 
 ## Making things interactive
 
