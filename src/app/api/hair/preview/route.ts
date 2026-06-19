@@ -70,6 +70,8 @@ export async function POST(req: Request) {
       image: file,
       prompt: previewPrompt(style.name, style.full_brief ?? ""),
       size: "1024x1536",
+      quality: "low", // ~33s vs ~58s at medium; previews don't need full fidelity
+
     });
   } catch (e) {
     await supabase.from("hair_styles").update({ status: "failed" }).eq("id", style.id);

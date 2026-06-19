@@ -61,12 +61,15 @@ export async function editImage(opts: {
   image: Blob;
   prompt: string;
   size?: "1024x1024" | "1024x1536" | "1536x1024" | "auto";
+  /** low|medium|high|auto — lower is much faster. Default medium for previews. */
+  quality?: "low" | "medium" | "high" | "auto";
 }): Promise<string> {
   const form = new FormData();
   form.append("model", IMAGE_MODEL);
   form.append("image", opts.image, "selfie.jpg");
   form.append("prompt", opts.prompt);
   form.append("size", opts.size ?? "1024x1536");
+  form.append("quality", opts.quality ?? "medium");
   form.append("n", "1");
 
   const res = await fetch("https://api.openai.com/v1/images/edits", {

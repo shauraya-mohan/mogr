@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +40,7 @@ export default function HairPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showFull, setShowFull] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const inFlight = useRef<Set<string>>(new Set());
 
   // ---- initial load: scan? existing recommendations? ----
   useEffect(() => {
@@ -83,22 +84,23 @@ export default function HairPage() {
     })();
   }, []);
 
-  // ---- ensure the selected style has an on-you preview ----
+  // ---- ensure a style has an on-you preview ----
+  // `silent` = background pre-generation (don't drive the main loading state).
   const ensurePreview = useCallback(
-    async (style: Style) => {
-      if (previews[style.id]) return;
+    async (style: Style, silent = false) => {
+      if (previews[style.id] || inFlight.current.has(style.id)) return;
+      inFlight.current.add(style.id);
       const supabase = createClient();
-      // Already rendered → just sign it.
-      if (style.status === "ready" && style.preview_path) {
-        const { data } = await supabase.storage
-          .from("user-media")
-          .createSignedUrl(style.preview_path, 3600);
-        if (data?.signedUrl) setPreviews((p) => ({ ...p, [style.id]: data.signedUrl }));
-        return;
-      }
-      // Generate it.
-      setPreviewLoading(true);
       try {
+        // Already rendered → just sign it.
+        if (style.status === "ready" && style.preview_path) {
+          const { data } = await supabase.storage
+            .from("user-media")
+            .createSignedUrl(style.preview_path, 3600);
+          if (data?.signedUrl) setPreviews((p) => ({ ...p, [style.id]: data.signedUrl }));
+          return;
+        }
+        if (!silent) setPreviewLoading(true);
         const res = await fetch("/api/hair/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -110,25 +112,42 @@ export default function HairPage() {
           setStyles((prev) =>
             prev.map((s) => (s.id === style.id ? { ...s, status: "ready" } : s)),
           );
-        } else {
+        } else if (!silent) {
           setError("Couldn't render that style — try again.");
         }
       } catch {
-        setError("Couldn't render that style — try again.");
+        if (!silent) setError("Couldn't render that style — try again.");
       } finally {
-        setPreviewLoading(false);
+        inFlight.current.delete(style.id);
+        if (!silent) setPreviewLoading(false);
       }
     },
     [previews],
   );
 
-  // Generate the preview whenever the selection changes.
+  // Generate the preview whenever the selection changes (with the spinner).
   useEffect(() => {
     if (mode !== "results" || !selectedId) return;
     const style = styles.find((s) => s.id === selectedId);
     if (style) ensurePreview(style);
     setShowFull(false);
   }, [mode, selectedId, styles, ensurePreview]);
+
+  // Pre-generate the rest in the background so switching styles feels instant.
+  useEffect(() => {
+    if (mode !== "results") return;
+    let cancelled = false;
+    (async () => {
+      for (const s of styles) {
+        if (cancelled) return;
+        // one at a time to avoid hammering the image API
+        await ensurePreview(s, true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, styles, ensurePreview]);
 
   async function submit() {
     setError(null);
@@ -364,28 +383,50 @@ export default function HairPage() {
       <div className="grid grid-cols-2 gap-[clamp(12px,1.4vw,18px)] lg:grid-cols-4">
         {styles.map((s) => {
           const active = s.id === selectedId;
+          const hasImg = !!previews[s.id];
           return (
             <button
               key={s.id}
               type="button"
               onClick={() => setSelectedId(s.id)}
-              className={`overflow-hidden rounded-[16px] border text-left transition-colors ${
+              className={`flex flex-col overflow-hidden rounded-[16px] border text-left transition-colors ${
                 active ? "border-bronze" : "border-[var(--ink-08)] hover:border-[rgba(176,122,60,0.5)]"
               }`}
             >
-              <div className="relative aspect-square bg-[#2C2B27]">
-                {previews[s.id] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previews[s.id]} alt={s.name} className="absolute inset-0 h-full w-full object-cover" />
-                ) : (
-                  <span className="absolute inset-0 grid place-items-center">
-                    <span className="h-[15px] w-[15px] rounded-[4px] border-[1.5px] border-[#F4F2EC]/40" />
-                  </span>
-                )}
-              </div>
-              <p className={`px-3 py-2.5 text-[14px] ${active ? "text-ink font-medium" : "text-graphite"}`}>
-                {s.name}
-              </p>
+              {hasImg ? (
+                <>
+                  <div className="relative aspect-square bg-[#2C2B27]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previews[s.id]}
+                      alt={s.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  </div>
+                  <p
+                    className={`px-3.5 py-3 font-display text-[15px] tracking-[-0.01em] ${
+                      active ? "font-bold text-ink" : "font-medium text-graphite"
+                    }`}
+                  >
+                    {s.name}
+                  </p>
+                </>
+              ) : (
+                <div className="flex min-h-[190px] flex-1 flex-col gap-2 bg-[#2C2B27] p-[18px] text-left">
+                  <p className="font-display text-[16px] font-bold leading-tight tracking-[-0.02em] text-[#F4F2EC]">
+                    {s.name}
+                  </p>
+                  <p className="font-body text-[12.5px] leading-relaxed text-[#F4F2EC]/55 line-clamp-6">
+                    {s.rationale}
+                  </p>
+                  {active && previewLoading && (
+                    <span className="mt-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-bronze">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
+                      rendering on you
+                    </span>
+                  )}
+                </div>
+              )}
             </button>
           );
         })}
