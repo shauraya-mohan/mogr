@@ -83,6 +83,11 @@ export default function CameraCapture({ onCapture, onError }: CameraCaptureProps
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Mirror horizontally so the captured photo matches the mirrored live video preview
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+
     ctx.drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     stopStream();

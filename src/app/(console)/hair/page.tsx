@@ -42,6 +42,71 @@ export default function HairPage() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const inFlight = useRef<Set<string>>(new Set());
 
+  // Slider comparison states and handlers
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [sliderVal, setSliderVal] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMove = useCallback((clientX: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setSliderVal(pct);
+  }, []);
+
+  const onMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+      handleMove(e.clientX);
+    },
+    [isDragging, handleMove],
+  );
+
+  const onMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const onTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (!isDragging) return;
+      if (e.touches[0]) {
+        handleMove(e.touches[0].clientX);
+      }
+    },
+    [isDragging, handleMove],
+  );
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+      window.addEventListener("touchmove", onTouchMove, { passive: true });
+      window.addEventListener("touchend", onMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onMouseUp);
+    };
+  }, [isDragging, onMouseMove, onMouseUp, onTouchMove]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    handleMove(e.clientX);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsDragging(true);
+    if (e.touches[0]) {
+      handleMove(e.touches[0].clientX);
+    }
+  };
+
+
   // ---- initial load: scan? existing recommendations? ----
   useEffect(() => {
     const supabase = createClient();
@@ -53,14 +118,24 @@ export default function HairPage() {
 
       const { data: scan } = await supabase
         .from("scans")
-        .select("id")
+        .select("id, storage_path")
         .eq("user_id", user.id)
         .eq("kind", "selfie")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (!scan) {
         setMode("need-scan");
         return;
+      }
+
+      if (scan.storage_path) {
+        const { data: signed } = await supabase.storage
+          .from("user-media")
+          .createSignedUrl(scan.storage_path, 3600);
+        if (signed?.signedUrl) {
+          setOriginalUrl(signed.signedUrl);
+        }
       }
 
       const [{ data: hs }, { data: hp }, { data: prof }] = await Promise.all([
@@ -270,34 +345,42 @@ export default function HairPage() {
   // ============================ results ============================
   return (
     <>
-      <header className="mb-[clamp(20px,3vh,32px)] flex items-start justify-between gap-6">
-        <div>
-          <p className="eyebrow mb-3">{HAIR_COPY.resultsEyebrow}</p>
-          <h1 className="font-display text-[clamp(30px,4.5vw,46px)] font-bold leading-[0.95] tracking-[-0.04em]">
-            {HAIR_COPY.resultsTitle}
-          </h1>
-        </div>
-        <div className="hidden sm:flex gap-8 pt-2 text-right">
-          {read.face_shape && (
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
-                Face shape
-              </p>
-              <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
-                {read.face_shape}
-              </p>
-            </div>
-          )}
-          {read.hair_type && (
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
-                Hair
-              </p>
-              <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
-                {read.hair_type}
-              </p>
-            </div>
-          )}
+      <header className="mb-[clamp(20px,3vh,32px)]">
+        <Link
+          href="/dashboard"
+          className="mb-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-stone hover:text-bronze transition-colors"
+        >
+          ← back to dashboard
+        </Link>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <p className="eyebrow mb-3">{HAIR_COPY.resultsEyebrow}</p>
+            <h1 className="font-display text-[clamp(30px,4.5vw,46px)] font-bold leading-[0.95] tracking-[-0.04em]">
+              {HAIR_COPY.resultsTitle}
+            </h1>
+          </div>
+          <div className="hidden sm:flex gap-8 pt-2 text-right">
+            {read.face_shape && (
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
+                  Face shape
+                </p>
+                <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
+                  {read.face_shape}
+                </p>
+              </div>
+            )}
+            {read.hair_type && (
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
+                  Hair
+                </p>
+                <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
+                  {read.hair_type}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -305,12 +388,54 @@ export default function HairPage() {
         {/* Preview */}
         <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] bg-[#2C2B27]">
           {selected && previews[selected.id] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previews[selected.id]}
-              alt={`${selected.name} previewed on you`}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            originalUrl ? (
+              <div
+                ref={containerRef}
+                className="relative h-full w-full select-none overflow-hidden cursor-col-resize"
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+              >
+                {/* Underlay: Suggested / Preview */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previews[selected.id]}
+                  alt={`${selected.name} previewed on you`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
+                />
+
+                {/* Overlay: Original */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={originalUrl}
+                  alt="Original hair"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{
+                    clipPath: `polygon(0 0, ${sliderVal}% 0, ${sliderVal}% 100%, 0 100%)`,
+                  }}
+                  draggable={false}
+                />
+
+                {/* Divider Line */}
+                <div
+                  className="absolute inset-y-0 z-20 w-[3px] bg-[#F4F2EC] -translate-x-1/2 pointer-events-none"
+                  style={{ left: `${sliderVal}%` }}
+                />
+
+                {/* Corner indicator */}
+                <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)] z-30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
+                  {HAIR_COPY.previewedOnYou}
+                </span>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previews[selected.id]}
+                alt={`${selected.name} previewed on you`}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            )
           ) : (
             <div className="absolute inset-0 grid place-items-center">
               {previewLoading ? (
@@ -327,7 +452,7 @@ export default function HairPage() {
               )}
             </div>
           )}
-          {selected && previews[selected.id] && (
+          {selected && previews[selected.id] && !originalUrl && (
             <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
               <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
               {HAIR_COPY.previewedOnYou}
@@ -366,9 +491,35 @@ export default function HairPage() {
               <button
                 type="button"
                 onClick={() => setShowFull((v) => !v)}
-                className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze"
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze cursor-pointer"
               >
-                <span className="h-3.5 w-3.5 rounded-[3px] border-[1.5px] border-current" />
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 shrink-0 transition-transform duration-300"
+                  aria-hidden="true"
+                >
+                  {showFull ? (
+                    <>
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="7" y1="8" x2="17" y2="8" />
+                      <line x1="7" y1="12" x2="17" y2="12" />
+                      <line x1="7" y1="16" x2="13" y2="16" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <line x1="10" y1="9" x2="8" y2="9" />
+                    </>
+                  )}
+                </svg>
                 {showFull ? "Show quick brief" : HAIR_COPY.fullBrief}
               </button>
             </div>
