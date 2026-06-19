@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import ScanGuide from "@/components/app/ScanGuide";
 import CameraCapture from "@/components/app/CameraCapture";
 import ScanReview from "@/components/app/ScanReview";
-import { saveSelfie } from "@/lib/scan/storage";
+import { uploadSelfie } from "@/lib/scan/persist";
 import { SCAN_ERRORS } from "@/lib/scan/content";
 
 type Step = "guide" | "capture" | "review";
@@ -33,7 +33,7 @@ export default function ScanPage() {
     setSaving(true);
     setError(null);
     try {
-      await saveSelfie(preview);
+      await uploadSelfie(preview);
       router.push("/dashboard");
     } catch {
       setError(SCAN_ERRORS.saveFailed);

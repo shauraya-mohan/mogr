@@ -1,4 +1,3 @@
-const KEY = "mogr-selfie";
 const MAX_EDGE = 1024;
 const JPEG_QUALITY = 0.85;
 
@@ -11,7 +10,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Resize to max longest edge and return a JPEG data URL. */
+/**
+ * Resize a captured selfie to a max longest edge and return a JPEG data URL.
+ * This is in-flight processing in the browser only — the resized image is then
+ * uploaded to Supabase Storage (see lib/scan/persist.ts). Nothing is persisted
+ * client-side.
+ */
 export async function resizeSelfie(source: string): Promise<string> {
   const img = await loadImage(source);
   const { naturalWidth: w, naturalHeight: h } = img;
@@ -26,22 +30,4 @@ export async function resizeSelfie(source: string): Promise<string> {
   if (!ctx) throw new Error("Could not get canvas context");
   ctx.drawImage(img, 0, 0, width, height);
   return canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-}
-
-export async function saveSelfie(source: string): Promise<void> {
-  const dataUrl = await resizeSelfie(source);
-  sessionStorage.setItem(KEY, dataUrl);
-}
-
-export function getSelfie(): string | null {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(KEY);
-}
-
-export function clearSelfie(): void {
-  sessionStorage.removeItem(KEY);
-}
-
-export function hasSelfie(): boolean {
-  return getSelfie() !== null;
 }

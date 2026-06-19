@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { DASHBOARD, type RoutineItem } from "@/lib/dashboard/data";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
 import { createClient } from "@/lib/supabase/client";
+
+/** Built feature routes per category (others stay inert until built). */
+const CATEGORY_HREF: Partial<Record<string, string>> = { "facial-hair": undefined, hair: "/hair" };
 
 const CARD =
   "rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,32px)]";
@@ -132,12 +136,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-[clamp(12px,1.4vw,18px)] lg:grid-cols-4">
           {DASHBOARD.categories.map((cat) => {
             const Icon = CATEGORY_ICONS[cat.key];
-            return (
-              <button
-                key={cat.key}
-                type="button"
-                className="group rounded-[18px] border border-[var(--ink-08)] bg-cloud p-[clamp(18px,2vw,24px)] text-left transition-colors hover:border-[rgba(176,122,60,0.5)]"
-              >
+            const href = CATEGORY_HREF[cat.key];
+            const cls =
+              "group rounded-[18px] border border-[var(--ink-08)] bg-cloud p-[clamp(18px,2vw,24px)] text-left transition-colors hover:border-[rgba(176,122,60,0.5)]";
+            const inner = (
+              <>
                 <Icon className="mb-7 h-6 w-6 text-graphite transition-colors group-hover:text-bronze" />
                 <p className="font-display text-[clamp(18px,1.9vw,21px)] font-bold tracking-[-0.02em] text-ink">
                   {cat.title}
@@ -145,6 +148,15 @@ export default function DashboardPage() {
                 <p className="mt-1 font-mono text-[12px] leading-snug text-stone">
                   {cat.subtitle}
                 </p>
+              </>
+            );
+            return href ? (
+              <Link key={cat.key} href={href} className={`block ${cls}`}>
+                {inner}
+              </Link>
+            ) : (
+              <button key={cat.key} type="button" className={cls}>
+                {inner}
               </button>
             );
           })}
