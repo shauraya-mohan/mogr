@@ -173,12 +173,6 @@ export default function HairPage() {
           .createSignedUrl(basePath, 3600);
         if (signed?.signedUrl) setOriginalUrl(signed.signedUrl);
 
-        try {
-          if (sessionStorage.getItem(`mogr-dismiss-newer-${latest.id}`)) {
-            setNewerDismissed(true);
-          }
-        } catch {}
-
         setStyles(hs as Style[]);
         setRead({ face_shape: prof?.face_shape ?? null, hair_type: hp?.hair_type ?? null });
         setSelectedId(hs[0].id);
@@ -335,10 +329,9 @@ export default function HairPage() {
   }
 
   function dismissNewer() {
+    // Hide for the current view only — it reappears on reload or when the user
+    // leaves and returns, since the component remounts with newerDismissed=false.
     setNewerDismissed(true);
-    try {
-      if (latestScan) sessionStorage.setItem(`mogr-dismiss-newer-${latestScan.id}`, "1");
-    } catch {}
   }
 
   const allAnswered = HAIR_QUESTIONS.every((q) => answers[q.id]);
