@@ -348,9 +348,14 @@ export default function HairPage() {
       <header className="mb-[clamp(20px,3vh,32px)]">
         <Link
           href="/dashboard"
-          className="mb-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-stone hover:text-bronze transition-colors"
+          className="group mb-5 inline-flex items-center gap-2.5 rounded-full border border-[var(--ink-12)] bg-cloud py-2 pl-2 pr-4 font-mono text-[12px] uppercase tracking-[0.12em] text-graphite transition-colors hover:border-bronze hover:text-ink"
         >
-          ← back to dashboard
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-bone transition-transform group-hover:-translate-x-0.5">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </span>
+          Dashboard
         </Link>
         <div className="flex items-start justify-between gap-6">
           <div>

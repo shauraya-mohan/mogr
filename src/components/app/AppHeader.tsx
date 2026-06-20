@@ -1,22 +1,8 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
-import { createClient } from "@/lib/supabase/client";
-import { AUTH } from "@/lib/scan/content";
 
 export default function AppHeader() {
-  const router = useRouter();
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
-
   return (
     <header className="sticky top-0 z-50 bg-bone/70 backdrop-blur-md border-b border-[var(--ink-08)]">
       <div className="container-page flex items-center justify-between gap-6 h-[var(--header-h)]">
@@ -38,16 +24,7 @@ export default function AppHeader() {
             priority
           />
         </Link>
-        <div className="flex items-center gap-[clamp(14px,2vw,24px)]">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-ink"
-          >
-            {AUTH.signOut}
-          </button>
-        </div>
+        <ThemeToggle />
       </div>
     </header>
   );
