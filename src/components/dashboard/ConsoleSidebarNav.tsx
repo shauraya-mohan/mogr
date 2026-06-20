@@ -7,7 +7,7 @@ import { NAV_ICONS } from "@/components/dashboard/icons";
 
 const ITEM_ROUTES: Record<string, string> = {
   dashboard: "/dashboard",
-  scans: "/scan",
+  scans: "/scans",
 };
 
 export default function ConsoleSidebarNav() {

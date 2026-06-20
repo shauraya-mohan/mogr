@@ -42,6 +42,13 @@ export default function HairPage() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const inFlight = useRef<Set<string>>(new Set());
 
+  // Newer-scan detection — offer to re-iterate on the most recent scan.
+  const [latestScan, setLatestScan] = useState<{ id: string; storage_path: string } | null>(null);
+  const [resultsScanId, setResultsScanId] = useState<string | null>(null);
+  const [storedQuestionnaire, setStoredQuestionnaire] = useState<Partial<Questionnaire> | null>(null);
+  const [newerDismissed, setNewerDismissed] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
   // Slider comparison states and handlers
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [sliderVal, setSliderVal] = useState(50);
@@ -116,7 +123,7 @@ export default function HairPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: scan } = await supabase
+      const { data: latest } = await supabase
         .from("scans")
         .select("id, storage_path")
         .eq("user_id", user.id)
@@ -124,31 +131,54 @@ export default function HairPage() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (!scan) {
+      if (!latest) {
         setMode("need-scan");
         return;
       }
-
-      if (scan.storage_path) {
-        const { data: signed } = await supabase.storage
-          .from("user-media")
-          .createSignedUrl(scan.storage_path, 3600);
-        if (signed?.signedUrl) {
-          setOriginalUrl(signed.signedUrl);
-        }
-      }
+      setLatestScan(latest);
 
       const [{ data: hs }, { data: hp }, { data: prof }] = await Promise.all([
         supabase
           .from("hair_styles")
-          .select("id, slug, name, rationale, brief, full_brief, preview_path, status")
+          .select("id, slug, name, rationale, brief, full_brief, preview_path, status, scan_id")
           .eq("user_id", user.id)
           .order("sort_order", { ascending: true }),
-        supabase.from("hair_profiles").select("hair_type").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("hair_profiles")
+          .select("hair_type, scan_id, questionnaire")
+          .eq("user_id", user.id)
+          .maybeSingle(),
         supabase.from("profiles").select("face_shape").eq("id", user.id).maybeSingle(),
       ]);
 
       if (hs && hs.length) {
+        // The scan the current recommendations were built on.
+        const baseScanId =
+          hp?.scan_id ?? (hs[0] as { scan_id?: string }).scan_id ?? latest.id;
+        setResultsScanId(baseScanId);
+        setStoredQuestionnaire((hp?.questionnaire as Partial<Questionnaire>) ?? null);
+
+        // Slider "original" = the photo those previews were generated from.
+        let basePath = latest.storage_path;
+        if (baseScanId !== latest.id) {
+          const { data: baseScan } = await supabase
+            .from("scans")
+            .select("storage_path")
+            .eq("id", baseScanId)
+            .maybeSingle();
+          if (baseScan?.storage_path) basePath = baseScan.storage_path;
+        }
+        const { data: signed } = await supabase.storage
+          .from("user-media")
+          .createSignedUrl(basePath, 3600);
+        if (signed?.signedUrl) setOriginalUrl(signed.signedUrl);
+
+        try {
+          if (sessionStorage.getItem(`mogr-dismiss-newer-${latest.id}`)) {
+            setNewerDismissed(true);
+          }
+        } catch {}
+
         setStyles(hs as Style[]);
         setRead({ face_shape: prof?.face_shape ?? null, hair_type: hp?.hair_type ?? null });
         setSelectedId(hs[0].id);
@@ -266,8 +296,59 @@ export default function HairPage() {
     setSavedIds((s) => new Set(s).add(style.id));
   }
 
+  // Re-run the analysis on the latest scan, keeping the saved questionnaire.
+  async function regenerate() {
+    if (!storedQuestionnaire) return;
+    setRegenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/hair/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionnaire: storedQuestionnaire }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError("Couldn't regenerate — try again.");
+        return;
+      }
+      setPreviews({});
+      inFlight.current.clear();
+      setSavedIds(new Set());
+      setStyles(json.styles);
+      setRead({ face_shape: json.read.face_shape, hair_type: json.read.hair_type });
+      setSelectedId(json.styles[0]?.id ?? null);
+      if (latestScan) {
+        setResultsScanId(latestScan.id);
+        const supabase = createClient();
+        const { data: signed } = await supabase.storage
+          .from("user-media")
+          .createSignedUrl(latestScan.storage_path, 3600);
+        setOriginalUrl(signed?.signedUrl ?? null);
+      }
+      setNewerDismissed(false);
+    } catch {
+      setError("Couldn't regenerate — try again.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  function dismissNewer() {
+    setNewerDismissed(true);
+    try {
+      if (latestScan) sessionStorage.setItem(`mogr-dismiss-newer-${latestScan.id}`, "1");
+    } catch {}
+  }
+
   const allAnswered = HAIR_QUESTIONS.every((q) => answers[q.id]);
   const selected = styles.find((s) => s.id === selectedId) ?? null;
+  const showNewer =
+    mode === "results" &&
+    !!latestScan &&
+    !!resultsScanId &&
+    latestScan.id !== resultsScanId &&
+    !newerDismissed;
 
   // ============================ states ============================
   if (mode === "loading") {
@@ -388,6 +469,33 @@ export default function HairPage() {
           </div>
         </div>
       </header>
+
+      {showNewer && (
+        <div className="mb-6 flex items-center gap-4 rounded-[14px] border border-[rgba(176,122,60,0.4)] bg-[rgba(176,122,60,0.09)] px-5 py-4">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-bronze animate-pulse" />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[15px] font-bold tracking-[-0.01em] text-ink">
+              New scan detected
+            </p>
+            <p className="font-body text-[13px] leading-snug text-graphite">
+              Regenerate your styles on your most recent photo.
+            </p>
+          </div>
+          <Button onClick={regenerate} size="sm" disabled={regenerating}>
+            {regenerating ? "Regenerating…" : "Regenerate"}
+          </Button>
+          <button
+            type="button"
+            onClick={dismissNewer}
+            aria-label="Dismiss"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone transition-colors hover:bg-[var(--ink-08)] hover:text-ink"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-[clamp(16px,2.5vw,32px)] lg:grid-cols-2">
         {/* Preview */}

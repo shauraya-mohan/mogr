@@ -14,7 +14,25 @@ type Mode = "signin" | "signup";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/scan";
+  const explicitNext = searchParams.get("next");
+
+  // Where to land after auth: an explicit target if the user was redirected
+  // here, otherwise scan-aware — brand-new users (no scans) go to /scan to
+  // onboard, returning users go straight to /dashboard.
+  async function resolveDest(
+    supabase: ReturnType<typeof createClient>,
+  ): Promise<string> {
+    if (explicitNext && explicitNext.startsWith("/")) return explicitNext;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return "/scan";
+    const { count } = await supabase
+      .from("scans")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    return (count ?? 0) > 0 ? "/dashboard" : "/scan";
+  }
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
@@ -36,7 +54,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(explicitNext || "/dashboard")}`,
           // Read by the handle_new_user() trigger to populate `profiles`.
           data: { full_name: name.trim(), age },
         },
@@ -50,7 +68,7 @@ export default function LoginPage() {
       // signUp returns a live session — go straight in. When confirmation is
       // required (prod), session is null and we wait on the verify page.
       if (data.session) {
-        router.push(next.startsWith("/") ? next : "/scan");
+        router.push(await resolveDest(supabase));
         router.refresh();
         return;
       }
@@ -70,7 +88,7 @@ export default function LoginPage() {
       }
     }
 
-    router.push(next.startsWith("/") ? next : "/scan");
+    router.push(await resolveDest(supabase));
     router.refresh();
   }
 

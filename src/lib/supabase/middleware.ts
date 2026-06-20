@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/scan", "/dashboard", "/hair"];
+const PROTECTED_PREFIXES = ["/scan", "/scans", "/dashboard", "/hair"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -44,9 +44,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (pathname === "/login" && user) {
-    const next = request.nextUrl.searchParams.get("next") || "/scan";
+    const next = request.nextUrl.searchParams.get("next") || "/dashboard";
     const url = request.nextUrl.clone();
-    url.pathname = next.startsWith("/") ? next : "/scan";
+    url.pathname = next.startsWith("/") ? next : "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
   }
