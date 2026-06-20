@@ -43,6 +43,13 @@ provider blocks all template edits**, and the built-in sender is rate-limited
 
 ---
 
+## Future scope
+
+- **Hair before/after comparison slider** — a draggable vertical divider on the
+  hair preview to wipe between the original photo and the generated style. Was
+  built then removed (2026-06-20) to keep the preview clean for now; re-add
+  later as an optional toggle so it doesn't clutter the default view.
+
 ## Other known TODOs (not blocking dev)
 
 - **Placeholder imagery:** category cards and the before/after proof frames are

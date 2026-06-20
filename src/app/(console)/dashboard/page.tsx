@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DASHBOARD, type RoutineItem } from "@/lib/dashboard/data";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
+import EditPreferences from "@/components/dashboard/EditPreferences";
 import { createClient } from "@/lib/supabase/client";
 
 /** Built feature routes per category (others stay inert until built). */
@@ -66,14 +67,19 @@ export default function DashboardPage() {
   return (
     <>
       {/* Greeting */}
-      <header className="mb-[clamp(24px,4vh,40px)]">
-        <p className="eyebrow mb-3">
-          {greeting.day ? `${greeting.day} — let's lock in` : "let's lock in"}
-        </p>
-        <h1 className="font-display text-[clamp(34px,5vw,52px)] font-bold leading-[0.95] tracking-[-0.04em]">
-          {greeting.word}, {firstName}
-          <span className="dot">.</span>
-        </h1>
+      <header className="mb-[clamp(24px,4vh,40px)] flex items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow mb-3">
+            {greeting.day ? `${greeting.day} — let's lock in` : "let's lock in"}
+          </p>
+          <h1 className="font-display text-[clamp(34px,5vw,52px)] font-bold leading-[0.95] tracking-[-0.04em]">
+            {greeting.word}, {firstName}
+            <span className="dot">.</span>
+          </h1>
+        </div>
+        <div className="pt-1">
+          <EditPreferences />
+        </div>
       </header>
 
       <div className="space-y-[clamp(16px,2vw,22px)]">

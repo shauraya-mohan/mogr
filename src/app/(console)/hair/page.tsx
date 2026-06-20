@@ -49,71 +49,6 @@ export default function HairPage() {
   const [newerDismissed, setNewerDismissed] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
-  // Slider comparison states and handlers
-  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [sliderVal, setSliderVal] = useState(50);
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleMove = useCallback((clientX: number) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    setSliderVal(pct);
-  }, []);
-
-  const onMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDragging) return;
-      handleMove(e.clientX);
-    },
-    [isDragging, handleMove],
-  );
-
-  const onMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  const onTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!isDragging) return;
-      if (e.touches[0]) {
-        handleMove(e.touches[0].clientX);
-      }
-    },
-    [isDragging, handleMove],
-  );
-
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-      window.addEventListener("touchmove", onTouchMove, { passive: true });
-      window.addEventListener("touchend", onMouseUp);
-    }
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onMouseUp);
-    };
-  }, [isDragging, onMouseMove, onMouseUp, onTouchMove]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    handleMove(e.clientX);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
-    if (e.touches[0]) {
-      handleMove(e.touches[0].clientX);
-    }
-  };
-
-
   // ---- initial load: scan? existing recommendations? ----
   useEffect(() => {
     const supabase = createClient();
@@ -157,21 +92,6 @@ export default function HairPage() {
           hp?.scan_id ?? (hs[0] as { scan_id?: string }).scan_id ?? latest.id;
         setResultsScanId(baseScanId);
         setStoredQuestionnaire((hp?.questionnaire as Partial<Questionnaire>) ?? null);
-
-        // Slider "original" = the photo those previews were generated from.
-        let basePath = latest.storage_path;
-        if (baseScanId !== latest.id) {
-          const { data: baseScan } = await supabase
-            .from("scans")
-            .select("storage_path")
-            .eq("id", baseScanId)
-            .maybeSingle();
-          if (baseScan?.storage_path) basePath = baseScan.storage_path;
-        }
-        const { data: signed } = await supabase.storage
-          .from("user-media")
-          .createSignedUrl(basePath, 3600);
-        if (signed?.signedUrl) setOriginalUrl(signed.signedUrl);
 
         setStyles(hs as Style[]);
         setRead({ face_shape: prof?.face_shape ?? null, hair_type: hp?.hair_type ?? null });
@@ -312,14 +232,7 @@ export default function HairPage() {
       setStyles(json.styles);
       setRead({ face_shape: json.read.face_shape, hair_type: json.read.hair_type });
       setSelectedId(json.styles[0]?.id ?? null);
-      if (latestScan) {
-        setResultsScanId(latestScan.id);
-        const supabase = createClient();
-        const { data: signed } = await supabase.storage
-          .from("user-media")
-          .createSignedUrl(latestScan.storage_path, 3600);
-        setOriginalUrl(signed?.signedUrl ?? null);
-      }
+      if (latestScan) setResultsScanId(latestScan.id);
       setNewerDismissed(false);
     } catch {
       setError("Couldn't regenerate — try again.");
@@ -494,54 +407,12 @@ export default function HairPage() {
         {/* Preview */}
         <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] bg-[#2C2B27]">
           {selected && previews[selected.id] ? (
-            originalUrl ? (
-              <div
-                ref={containerRef}
-                className="relative h-full w-full select-none overflow-hidden cursor-col-resize"
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleTouchStart}
-              >
-                {/* Underlay: Suggested / Preview */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previews[selected.id]}
-                  alt={`${selected.name} previewed on you`}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  draggable={false}
-                />
-
-                {/* Overlay: Original */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={originalUrl}
-                  alt="Original hair"
-                  className="absolute inset-0 h-full w-full object-cover"
-                  style={{
-                    clipPath: `polygon(0 0, ${sliderVal}% 0, ${sliderVal}% 100%, 0 100%)`,
-                  }}
-                  draggable={false}
-                />
-
-                {/* Divider Line */}
-                <div
-                  className="absolute inset-y-0 z-20 w-[3px] bg-[#F4F2EC] -translate-x-1/2 pointer-events-none"
-                  style={{ left: `${sliderVal}%` }}
-                />
-
-                {/* Corner indicator */}
-                <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)] z-30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
-                  {HAIR_COPY.previewedOnYou}
-                </span>
-              </div>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previews[selected.id]}
-                alt={`${selected.name} previewed on you`}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            )
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previews[selected.id]}
+              alt={`${selected.name} previewed on you`}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           ) : (
             <div className="absolute inset-0 grid place-items-center">
               {previewLoading ? (
@@ -558,7 +429,7 @@ export default function HairPage() {
               )}
             </div>
           )}
-          {selected && previews[selected.id] && !originalUrl && (
+          {selected && previews[selected.id] && (
             <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
               <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
               {HAIR_COPY.previewedOnYou}
