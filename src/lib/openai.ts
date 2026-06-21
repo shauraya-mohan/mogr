@@ -53,6 +53,36 @@ export async function visionJSON<T>(opts: {
 }
 
 /**
+ * Text-only completion → strict JSON. For outputs that don't need the photo
+ * (e.g. a haircare routine derived from a questionnaire + the prior read).
+ */
+export async function chatJSON<T>(opts: {
+  system: string;
+  user: string;
+}): Promise<T> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${requireKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`OpenAI chat ${res.status}: ${await res.text()}`);
+  }
+  const data = await res.json();
+  return JSON.parse(data.choices?.[0]?.message?.content ?? "{}") as T;
+}
+
+/**
  * Face-preserving image edit. Sends the source photo + a prompt to the image
  * edit endpoint and returns the result as a base64 PNG string.
  * v1 is mask-less (prompt-driven identity preservation).

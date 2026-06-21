@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/Button";
+import HaircareSection from "@/components/hair/HaircareSection";
 import { createClient } from "@/lib/supabase/client";
 import {
   HAIR_QUESTIONS,
@@ -39,6 +40,7 @@ export default function HairPage() {
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showFull, setShowFull] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const inFlight = useRef<Set<string>>(new Set());
 
@@ -245,6 +247,44 @@ export default function HairPage() {
     // Hide for the current view only — it reappears on reload or when the user
     // leaves and returns, since the component remounts with newerDismissed=false.
     setNewerDismissed(true);
+  }
+
+  // Copy the barber brief — the on-you image + the brief text in one clipboard
+  // item. Apps that accept images (chats, notes) paste the photo; plain-text
+  // fields paste the brief. Falls back to text-only where image copy isn't
+  // supported.
+  async function copyBrief(style: Style) {
+    const url = previews[style.id];
+    const text = [
+      "mogr — hair brief",
+      `Style: ${style.name}`,
+      "",
+      style.full_brief || style.brief || "",
+      "",
+      `Face shape: ${read.face_shape ?? "—"} · Hair: ${read.hair_type ?? "—"}`,
+    ].join("\n");
+    try {
+      if (url && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([text], { type: "text/plain" }),
+            "image/png": (async () => (await fetch(url)).blob())(),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setError("Couldn't copy — try again.");
+      }
+    }
   }
 
   const allAnswered = HAIR_QUESTIONS.every((q) => answers[q.id]);
@@ -467,6 +507,17 @@ export default function HairPage() {
               </Button>
               <button
                 type="button"
+                onClick={() => copyBrief(selected)}
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                {copied ? "Copied — paste anywhere" : "Copy look + brief"}
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowFull((v) => !v)}
                 className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze cursor-pointer"
               >
@@ -559,6 +610,8 @@ export default function HairPage() {
           );
         })}
       </div>
+
+      <HaircareSection />
     </>
   );
 }
