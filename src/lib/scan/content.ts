@@ -55,14 +55,6 @@ export const SCAN_ERRORS = {
   saveFailed: "Could not save your photo. Try again or use a smaller image.",
 } as const;
 
-export const DASHBOARD = {
-  eyebrow: "scan complete",
-  title: "You're in.",
-  body: "Your profile and feature workflows are coming soon. This selfie will be reused across skin, hair, and beard reads — no need to scan again.",
-  retake: "Retake scan",
-  home: "Back to home",
-} as const;
-
 export const AUTH = {
   signInEyebrow: "welcome back",
   signUpEyebrow: "get started",
@@ -76,7 +68,6 @@ export const AUTH = {
   signUp: "Create account",
   toggleSignUp: "Need an account? Create one",
   toggleSignIn: "Already have an account? Log in",
-  signOut: "Log out",
 } as const;
 
 export const VERIFY = {
