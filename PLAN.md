@@ -50,6 +50,26 @@ provider blocks all template edits**, and the built-in sender is rate-limited
   built then removed (2026-06-20) to keep the preview clean for now; re-add
   later as an optional toggle so it doesn't clutter the default view.
 
+## Production readiness & hardening (pre-launch)
+
+Flagged from a project review — none block dev, but all are needed before this
+is a real, shippable product (and they materially raise its quality bar).
+
+- **Deploy with a live URL** — host on Vercel against a *production* Supabase
+  project (separate from the dev one). Ties into the SMTP/auth checklist above:
+  prod must have email verification on and auto-confirm off.
+- **Tests** — at minimum cover the auth redirect logic, the cache-key behaviour,
+  and the analyze/preview routes (happy path + failure). None exist yet.
+- **Robust error handling & states** — graceful failure UI for slow/failed image
+  gen, network errors, and OpenAI/Supabase outages; retries where sensible.
+- **Rate limiting & abuse protection** — the OpenAI routes (analyze / preview /
+  haircare) are unthrottled; add per-user limits so generation can't be spammed
+  (cost + abuse). Consider a captcha on signup once auto-confirm is off.
+- **Observability** — basic logging/metrics on the AI routes (latency, failure
+  rate, spend) so issues are visible.
+- **Real usage signal** — get a handful of real users through the flow; capture
+  a "looks like me" satisfaction signal and basic funnel metrics (PRD §9).
+
 ## Other known TODOs (not blocking dev)
 
 - **Placeholder imagery:** category cards and the before/after proof frames are
