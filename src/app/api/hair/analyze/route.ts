@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { visionJSON } from "@/lib/openai";
+import { canonical } from "@/lib/cacheKey";
 import { HAIR_SYSTEM_PROMPT, type Questionnaire } from "@/lib/hair/content";
 
 export const runtime = "nodejs";
@@ -42,6 +43,42 @@ export async function POST(req: Request) {
     .limit(1)
     .maybeSingle();
   if (!scan) return NextResponse.json({ error: "no-scan" }, { status: 400 });
+
+  // Cache: same questionnaire + same scan + existing recommendations → return
+  // them unchanged. No vision call, previews preserved → consistent results.
+  const { data: existingProfile } = await supabase
+    .from("hair_profiles")
+    .select("hair_type, density, length, summary, scan_id, questionnaire")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const { data: existingStyles } = await supabase
+    .from("hair_styles")
+    .select("id, slug, name, rationale, brief, full_brief, preview_path, status, sort_order")
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: true });
+  if (
+    existingStyles?.length &&
+    existingProfile?.scan_id === scan.id &&
+    existingProfile?.questionnaire &&
+    canonical(existingProfile.questionnaire) === canonical(questionnaire)
+  ) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("face_shape")
+      .eq("id", user.id)
+      .maybeSingle();
+    return NextResponse.json({
+      read: {
+        face_shape: prof?.face_shape ?? null,
+        hair_type: existingProfile.hair_type,
+        density: existingProfile.density,
+        length: existingProfile.length,
+        summary: existingProfile.summary,
+      },
+      styles: existingStyles,
+      cached: true,
+    });
+  }
 
   // Download the selfie → data URL for the vision model.
   const { data: file, error: dlErr } = await supabase.storage
