@@ -8,7 +8,11 @@ import EditPreferences from "@/components/dashboard/EditPreferences";
 import { createClient } from "@/lib/supabase/client";
 
 /** Built feature routes per category (others stay inert until built). */
-const CATEGORY_HREF: Partial<Record<string, string>> = { "facial-hair": undefined, hair: "/hair" };
+const CATEGORY_HREF: Partial<Record<string, string>> = {
+  skin: "/skin",
+  hair: "/hair",
+  "facial-hair": "/facial-hair",
+};
 
 const CARD =
   "rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,32px)]";
