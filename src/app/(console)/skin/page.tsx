@@ -18,22 +18,22 @@ import {
 type Mode = "loading" | "capture" | "questionnaire" | "analyzing" | "results";
 
 const REGION_LABELS: Record<string, string> = {
-  forehead: "Forehead",
-  nose: "Nose",
-  cheeks: "Cheeks",
-  chin: "Chin",
-  under_eyes: "Under-eyes",
+  forehead: "forehead",
+  nose: "nose",
+  cheeks: "cheeks",
+  chin: "chin",
+  under_eyes: "under eyes",
   t_zone: "T-zone",
-  u_zone: "Cheeks & jaw",
+  u_zone: "cheeks & jaw",
 };
 
-const SEV_TONE: Record<Severity, string> = {
-  none: "text-stone",
-  mild: "text-graphite",
-  moderate: "text-bronze",
-  strong: "text-bronze",
-  unclear: "text-stone",
-};
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  } catch {
+    return "";
+  }
+}
 
 export default function SkinPage() {
   const [mode, setMode] = useState<Mode>("loading");
@@ -41,7 +41,26 @@ export default function SkinPage() {
   const [answers, setAnswers] = useState<SkinQuestionnaire>({});
   const [read, setRead] = useState<SkinRead | null>(null);
   const [routine, setRoutine] = useState<SkinRoutine | null>(null);
+  const [scanUrl, setScanUrl] = useState<string | null>(null);
+  const [scanDate, setScanDate] = useState<string | null>(null);
+  const [added, setAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sign the skin scan image + read its date (for the results view).
+  async function loadScanMeta(sid: string) {
+    const supabase = createClient();
+    const { data: scan } = await supabase
+      .from("scans")
+      .select("storage_path, created_at")
+      .eq("id", sid)
+      .maybeSingle();
+    if (!scan) return;
+    setScanDate(fmtDate(scan.created_at));
+    const { data: signed } = await supabase.storage
+      .from("user-media")
+      .createSignedUrl(scan.storage_path, 3600);
+    if (signed?.signedUrl) setScanUrl(signed.signedUrl);
+  }
 
   // Load an existing read if present, else start a fresh scan.
   useEffect(() => {
@@ -53,13 +72,17 @@ export default function SkinPage() {
       if (!user) return;
       const { data } = await supabase
         .from("skin_profiles")
-        .select("data")
+        .select("data, scan_id")
         .eq("user_id", user.id)
         .maybeSingle();
       const d = data?.data as { read?: SkinRead; routine?: SkinRoutine } | null;
       if (d?.read && d?.routine) {
         setRead(d.read);
         setRoutine(d.routine);
+        if (data?.scan_id) {
+          setScanId(data.scan_id);
+          loadScanMeta(data.scan_id);
+        }
         setMode("results");
       } else {
         setMode("capture");
@@ -102,6 +125,8 @@ export default function SkinPage() {
       }
       setRead(json.read);
       setRoutine(json.routine);
+      setAdded(false);
+      loadScanMeta(scanId);
       setMode("results");
     } catch {
       setError("Analysis failed — try again.");
@@ -113,7 +138,10 @@ export default function SkinPage() {
     setRead(null);
     setRoutine(null);
     setScanId(null);
+    setScanUrl(null);
+    setScanDate(null);
     setAnswers({});
+    setAdded(false);
     setMode("capture");
   }
 
@@ -123,6 +151,7 @@ export default function SkinPage() {
     return <p className="font-mono text-[13px] text-stone">Loading…</p>;
   }
 
+  // ── capture (unchanged) ──
   if (mode === "capture") {
     return (
       <>
@@ -132,6 +161,7 @@ export default function SkinPage() {
     );
   }
 
+  // ── questionnaire (unchanged) ──
   if (mode === "questionnaire" || mode === "analyzing") {
     const busy = mode === "analyzing";
     return (
@@ -185,122 +215,169 @@ export default function SkinPage() {
     );
   }
 
-  // ── results ──
+  // ── results (redesigned) ──
   const visibleConcerns = (read?.concerns ?? []).filter(
     (c) => c.visible && c.severity !== "none" && c.severity !== "unclear",
   );
+  const zT = read?.zoneSummary?.t_zone;
+  const zU = read?.zoneSummary?.u_zone;
 
   return (
     <>
-      <header className="mb-[clamp(20px,3vh,32px)] flex items-start justify-between gap-6">
+      <Link
+        href="/dashboard"
+        className="group mb-5 inline-flex items-center gap-2.5 rounded-full border border-[var(--ink-12)] bg-cloud py-2 pl-2 pr-4 font-mono text-[12px] uppercase tracking-[0.12em] text-graphite transition-colors hover:border-bronze hover:text-ink"
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-bone transition-transform group-hover:-translate-x-0.5">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </span>
+        Dashboard
+      </Link>
+
+      <header className="mb-[clamp(18px,3vh,28px)] flex items-end justify-between gap-6">
         <div>
           <p className="eyebrow mb-3">{SKIN_COPY.resultsEyebrow}</p>
           <h1 className="font-display text-[clamp(30px,4.5vw,46px)] font-bold leading-[0.95] tracking-[-0.04em]">
-            {SKIN_COPY.resultsTitle}
+            Your skin today<span className="dot">.</span>
           </h1>
         </div>
-        {read?.skinType?.value && (
-          <div className="hidden text-right sm:block">
-            <p className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
-              {SKIN_COPY.skinTypeLabel}
-            </p>
-            <p className="font-display text-[18px] capitalize tracking-[-0.02em] text-ink">
-              {read.skinType.value}
-            </p>
-          </div>
+        {scanDate && (
+          <p className="shrink-0 font-mono text-[12px] tracking-[0.04em] text-stone">
+            scanned {scanDate}
+          </p>
         )}
       </header>
 
+      {/* Scan + skin type */}
+      <div className="grid items-stretch gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
+        <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-[#2C2B27]">
+          {scanUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={scanUrl} alt="Your scan" className="absolute inset-0 h-full w-full object-cover" />
+          )}
+          <span className="absolute left-1/2 top-[25%] -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-[#F4F2EC] backdrop-blur-sm">
+            T-zone
+          </span>
+          <span className="absolute left-1/2 top-[62%] -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-[#F4F2EC] backdrop-blur-sm">
+            U-zone
+          </span>
+          <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
+            your scan
+          </span>
+        </div>
+
+        <div className="rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(22px,2.8vw,34px)]">
+          <p className="mb-2 font-mono text-[12px] uppercase tracking-[0.14em] text-stone">
+            {SKIN_COPY.skinTypeLabel}
+          </p>
+          <h2 className="mb-6 font-display text-[clamp(28px,3.4vw,40px)] font-bold capitalize tracking-[-0.03em] text-ink">
+            {read?.skinType?.value ?? "—"}
+          </h2>
+          <div className="border-t border-[var(--ink-08)]">
+            {zT && (
+              <div className="flex gap-5 border-b border-[var(--ink-08)] py-4">
+                <span className="w-[58px] shrink-0 pt-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-stone">
+                  T-zone
+                </span>
+                <p className="text-[15px] leading-relaxed text-ink">{zT}</p>
+              </div>
+            )}
+            {zU && (
+              <div className="flex gap-5 py-4">
+                <span className="w-[58px] shrink-0 pt-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-stone">
+                  U-zone
+                </span>
+                <p className="text-[15px] leading-relaxed text-ink">{zU}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* THE READ */}
       {routine?.summary && (
-        <p className="mb-8 max-w-[64ch] text-[clamp(16px,1.8vw,19px)] leading-relaxed text-ink">
-          {routine.summary}
+        <div className="mt-[clamp(16px,2.5vw,24px)] rounded-[20px] bg-[#161510] p-[clamp(22px,3vw,38px)]">
+          <p className="mb-4 flex items-center gap-2.5 font-mono text-[12px] uppercase tracking-[0.16em] text-bronze">
+            <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
+            the read
+          </p>
+          <p className="max-w-[70ch] text-[clamp(17px,1.9vw,21px)] leading-relaxed text-[#F4F2EC]">
+            {routine.summary}
+          </p>
+        </div>
+      )}
+
+      {/* What we noticed */}
+      <p className="eyebrow mb-2 mt-[clamp(28px,4vh,44px)]">{SKIN_COPY.concernsLabel}</p>
+      {visibleConcerns.length ? (
+        <ul className="divide-y divide-[var(--ink-08)]">
+          {visibleConcerns.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-4 py-4">
+              <p className="font-display text-[clamp(16px,1.8vw,20px)] tracking-[-0.01em] text-ink">
+                {c.label}
+              </p>
+              <div className="flex items-center gap-3 sm:gap-4">
+                {c.regions.length > 0 && (
+                  <span className="hidden font-mono text-[12px] tracking-[0.04em] text-stone sm:inline">
+                    {c.regions.map((r) => REGION_LABELS[r] ?? r).join(" · ")}
+                  </span>
+                )}
+                <SeverityBar severity={c.severity} />
+                <span className="w-[68px] text-right font-mono text-[12px] capitalize tracking-[0.04em] text-ink">
+                  {c.severity}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[15px] leading-relaxed text-graphite">
+          Nothing notable stood out — your skin&apos;s in good shape. Keep the routine consistent.
         </p>
       )}
 
-      <div className="grid gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
-        {/* What we noticed */}
-        <section className="rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,30px)]">
-          <p className="eyebrow mb-5">{SKIN_COPY.concernsLabel}</p>
-          {visibleConcerns.length ? (
-            <ul className="divide-y divide-[var(--ink-08)]">
-              {visibleConcerns.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <p className="text-[15px] text-ink">{c.label}</p>
-                    {c.regions.length > 0 && (
-                      <p className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-stone">
-                        {c.regions.map((r) => REGION_LABELS[r] ?? r).join(" · ")}
-                      </p>
-                    )}
-                  </div>
-                  <span
-                    className={`shrink-0 font-mono text-[11px] uppercase tracking-[0.14em] ${SEV_TONE[c.severity]}`}
-                  >
-                    {c.severity}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[15px] leading-relaxed text-graphite">
-              Nothing notable stood out — your skin&apos;s in good shape. Keep the routine consistent.
-            </p>
-          )}
-
-          {read?.zoneSummary && (read.zoneSummary.t_zone || read.zoneSummary.u_zone) && (
-            <div className="mt-6 border-t border-[var(--ink-08)] pt-5">
-              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
-                {SKIN_COPY.zonesLabel}
-              </p>
-              {read.zoneSummary.t_zone && (
-                <p className="text-[14px] leading-relaxed text-graphite">
-                  <span className="font-medium text-ink">T-zone.</span> {read.zoneSummary.t_zone}
-                </p>
-              )}
-              {read.zoneSummary.u_zone && (
-                <p className="mt-1.5 text-[14px] leading-relaxed text-graphite">
-                  <span className="font-medium text-ink">Cheeks & jaw.</span> {read.zoneSummary.u_zone}
-                </p>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Routine */}
-        <section className="rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,30px)]">
-          <p className="eyebrow mb-5">{SKIN_COPY.routineTitle}</p>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <RoutineCol title={SKIN_COPY.am} steps={routine?.am ?? []} />
-            <RoutineCol title={SKIN_COPY.pm} steps={routine?.pm ?? []} />
-          </div>
-          {routine?.habits && routine.habits.length > 0 && (
-            <div className="mt-6 border-t border-[var(--ink-08)] pt-5">
-              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
-                {SKIN_COPY.habitsLabel}
-              </p>
-              <ul className="space-y-2">
-                {routine.habits.map((h, i) => (
-                  <li key={i} className="flex gap-2.5 text-[14px] leading-relaxed text-graphite">
-                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-bronze" />
-                    {h}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
+      {/* Routine */}
+      <p className="eyebrow mb-5 mt-[clamp(28px,4vh,44px)]">{SKIN_COPY.routineTitle}</p>
+      <div className="grid items-start gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
+        <RoutineCard title={SKIN_COPY.am} steps={routine?.am ?? []} />
+        <RoutineCard title={SKIN_COPY.pm} steps={routine?.pm ?? []} />
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center gap-5">
-        <Button onClick={rescan} size="lg">
-          {SKIN_COPY.rescan}
+      {routine?.habits && routine.habits.length > 0 && (
+        <>
+          <p className="eyebrow mb-4 mt-[clamp(20px,3vh,32px)]">{SKIN_COPY.habitsLabel}</p>
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {routine.habits.map((h, i) => (
+              <li key={i} className="flex gap-2.5 text-[14px] leading-relaxed text-graphite">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-bronze" />
+                {h}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* Actions */}
+      <div className="mt-[clamp(28px,4vh,44px)] flex flex-wrap items-center gap-4">
+        <Button onClick={() => setAdded(true)} size="lg" disabled={added}>
+          {added ? "Added to your day" : "Add routine to my day"}
         </Button>
-        <Link
-          href="/dashboard"
-          className="font-mono text-[13px] uppercase tracking-[0.12em] text-graphite transition-colors hover:text-bronze"
+        <button
+          type="button"
+          onClick={rescan}
+          className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--ink-12)] px-5 py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze"
         >
-          back to dashboard
-        </Link>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" />
+          </svg>
+          {SKIN_COPY.rescan}
+        </button>
+        <span className="ml-auto font-mono text-[12px] tracking-[0.04em] text-stone">
+          product picks coming soon
+        </span>
       </div>
 
       <p className="mt-6 font-mono text-[11px] tracking-[0.04em] text-stone">
@@ -310,7 +387,22 @@ export default function SkinPage() {
   );
 }
 
-function RoutineCol({
+/** Three-segment qualitative meter: mild=1, moderate=2, strong=3 (no numbers). */
+function SeverityBar({ severity }: { severity: Severity }) {
+  const level = severity === "strong" ? 3 : severity === "moderate" ? 2 : severity === "mild" ? 1 : 0;
+  return (
+    <div className="flex gap-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={`h-2 w-5 rounded-full ${i < level ? "bg-ink" : "bg-[var(--ink-12)]"}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RoutineCard({
   title,
   steps,
 }: {
@@ -318,21 +410,19 @@ function RoutineCol({
   steps: { step: string; detail: string }[];
 }) {
   return (
-    <div>
-      <p className="mb-3 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">{title}</p>
-      <ol className="space-y-3">
+    <section className="rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,30px)]">
+      <div className="mb-4 flex items-center gap-3 border-b border-[var(--ink-08)] pb-4">
+        <span className="h-[18px] w-[18px] shrink-0 rounded-[5px] border-[1.5px] border-[var(--ink-12)]" />
+        <h3 className="font-display text-[20px] font-bold tracking-[-0.02em] text-ink">{title}</h3>
+      </div>
+      <ul className="divide-y divide-[var(--ink-08)]">
         {steps.map((s, i) => (
-          <li key={i} className="flex gap-3">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink font-mono text-[11px] text-bone">
-              {i + 1}
-            </span>
-            <div>
-              <p className="text-[14px] font-medium text-ink">{s.step}</p>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-graphite">{s.detail}</p>
-            </div>
+          <li key={i} className="py-4 first:pt-0 last:pb-0">
+            <p className="text-[16px] font-medium text-ink">{s.step}</p>
+            <p className="mt-1 text-[14px] leading-relaxed text-graphite">{s.detail}</p>
           </li>
         ))}
-      </ol>
-    </div>
+      </ul>
+    </section>
   );
 }
