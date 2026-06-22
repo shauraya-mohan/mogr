@@ -21,6 +21,10 @@ export async function visionJSON<T>(opts: {
   system: string;
   user: string;
   imageDataUrl: string;
+  /** Override the model (e.g. a temperature-0-capable one). */
+  model?: string;
+  /** Pin determinism where the model allows it. */
+  temperature?: number;
 }): Promise<T> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -29,7 +33,8 @@ export async function visionJSON<T>(opts: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: VISION_MODEL,
+      model: opts.model || VISION_MODEL,
+      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: opts.system },
@@ -59,6 +64,8 @@ export async function visionJSON<T>(opts: {
 export async function chatJSON<T>(opts: {
   system: string;
   user: string;
+  model?: string;
+  temperature?: number;
 }): Promise<T> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -67,7 +74,8 @@ export async function chatJSON<T>(opts: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: VISION_MODEL,
+      model: opts.model || VISION_MODEL,
+      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: opts.system },
