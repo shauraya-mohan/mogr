@@ -40,6 +40,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   const [passing, setPassing] = useState(false);
   const [reason, setReason] = useState<GateReason | null>("no-face");
   const [capturing, setCapturing] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
   const [useUpload, setUseUpload] = useState(false);
 
   const stop = useCallback(() => {
@@ -179,6 +180,9 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
       return;
     }
     ctx.drawImage(video, 0, 0);
+    // Freeze the shot for display so the box never shows a dead/black feed
+    // while the parent uploads + analyses.
+    setPreview(c.toDataURL("image/jpeg", 0.85));
     const lm = lastLm.current;
     const dataUrl = lm ? cropAndWhiteBalance(c, faceBBox(lm, 0.25)) : c.toDataURL("image/jpeg", 0.9);
     stop();
@@ -223,14 +227,14 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
           muted
           className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
         />
-        {!ready && (
+        {!ready && !preview && (
           <div className="absolute inset-0 grid place-items-center">
             <p className="font-mono text-[13px] text-stone">{SKIN_COPY.starting}</p>
           </div>
         )}
 
         {/* reticle — bronze when passing, stone otherwise */}
-        {ready && (
+        {ready && !preview && (
           <div
             className={`pointer-events-none absolute inset-6 rounded-[120px] border-2 transition-colors duration-300 ${
               passing ? "border-bronze/70" : "border-[#F4F2EC]/30"
@@ -239,7 +243,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
         )}
 
         {/* status pill */}
-        {ready && (
+        {ready && !preview && (
           <div className="absolute inset-x-0 bottom-4 flex justify-center">
             <span
               className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] backdrop-blur-md [text-shadow:0_1px_8px_rgba(0,0,0,0.5)] ${
@@ -250,6 +254,26 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
               {statusText}
             </span>
           </div>
+        )}
+
+        {/* Frozen shot + processing — never a dead feed */}
+        {preview && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={preview}
+              alt="Captured"
+              className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
+            />
+            <div className="absolute inset-0 grid place-items-center bg-black/45">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-bronze" />
+                <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]">
+                  {SKIN_COPY.scanning}
+                </p>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

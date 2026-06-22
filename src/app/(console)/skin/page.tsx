@@ -342,8 +342,8 @@ export default function SkinPage() {
       {/* Routine */}
       <p className="eyebrow mb-5 mt-[clamp(28px,4vh,44px)]">{SKIN_COPY.routineTitle}</p>
       <div className="grid items-start gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
-        <RoutineCard title={SKIN_COPY.am} steps={routine?.am ?? []} />
-        <RoutineCard title={SKIN_COPY.pm} steps={routine?.pm ?? []} />
+        <RoutineCard title={SKIN_COPY.am} steps={routine?.am ?? []} icon={<SunIcon />} />
+        <RoutineCard title={SKIN_COPY.pm} steps={routine?.pm ?? []} icon={<MoonIcon />} />
       </div>
 
       {routine?.habits && routine.habits.length > 0 && (
@@ -402,17 +402,35 @@ function SeverityBar({ severity }: { severity: Severity }) {
   );
 }
 
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.2M12 19.8V22M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2 12h2.2M19.8 12H22M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+    </svg>
+  );
+}
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z" />
+    </svg>
+  );
+}
+
 function RoutineCard({
   title,
   steps,
+  icon,
 }: {
   title: string;
   steps: { step: string; detail: string }[];
+  icon: React.ReactNode;
 }) {
   return (
     <section className="rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,30px)]">
       <div className="mb-4 flex items-center gap-3 border-b border-[var(--ink-08)] pb-4">
-        <span className="h-[18px] w-[18px] shrink-0 rounded-[5px] border-[1.5px] border-[var(--ink-12)]" />
+        <span className="shrink-0 text-bronze">{icon}</span>
         <h3 className="font-display text-[20px] font-bold tracking-[-0.02em] text-ink">{title}</h3>
       </div>
       <ul className="divide-y divide-[var(--ink-08)]">
