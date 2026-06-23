@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { canonical } from "@/lib/cacheKey";
 import {
   HAIRCARE_FIELDS,
   HAIRCARE_CONCERNS,
@@ -35,6 +36,9 @@ export default function HaircareSection() {
   const [tips, setTips] = useState<Tips | null>(null);
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Canonical key of the answers that produced the currently-shown routine.
+  // Re-submitting an identical form short-circuits (no API call, no regen).
+  const [builtKey, setBuiltKey] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -54,7 +58,11 @@ export default function HaircareSection() {
       const hc = data?.haircare as { answers?: HaircareAnswers; tips?: Tips } | null;
       if (hc?.tips) {
         setTips(hc.tips);
-        if (hc.answers) setAnswers({ ...hc.answers, concerns: hc.answers.concerns ?? [] });
+        if (hc.answers) {
+          const loaded = { ...hc.answers, concerns: hc.answers.concerns ?? [] };
+          setAnswers(loaded);
+          setBuiltKey(canonical(loaded));
+        }
         setMode("tips");
       } else {
         setMode("intro");
@@ -77,6 +85,12 @@ export default function HaircareSection() {
   const ready = !!answers.scalp && !!answers.washFreq && !!answers.heat;
 
   async function build() {
+    // Unchanged from the routine already shown → keep it, no regeneration.
+    const key = canonical(answers);
+    if (tips && builtKey && key === builtKey) {
+      setMode("tips");
+      return;
+    }
     setBuilding(true);
     setError(null);
     try {
@@ -91,6 +105,7 @@ export default function HaircareSection() {
         return;
       }
       setTips(json.tips);
+      setBuiltKey(key);
       setMode("tips");
     } catch {
       setError("Couldn't build your routine — try again.");
