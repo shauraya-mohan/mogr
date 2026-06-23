@@ -57,10 +57,22 @@ export function assessPose(lm: Landmark[]): { ok: boolean; reason?: GateReason }
   if (!le || !re || !nose || !lf || !rf) return { ok: true };
 
   const span = rf.x - lf.x || 1e-6;
-  const yawOffset = (nose.x - lf.x) / span - 0.5; // 0 = centered
-  const roll = (Math.atan2(re.y - le.y, re.x - le.x) * 180) / Math.PI;
+  const yawOffset = (nose.x - lf.x) / span - 0.5; // 0 = centered (left/right turn)
+  const roll = (Math.atan2(re.y - le.y, re.x - le.x) * 180) / Math.PI; // tilt
 
-  if (Math.abs(yawOffset) > 0.14 || Math.abs(roll) > 13) {
+  // Pitch (up/down): how far the nose tip sits below the eye line, normalised
+  // by inter-eye distance (scale-invariant). Looking UP foreshortens the nose
+  // toward the eyes (small value); looking DOWN enlarges it.
+  const eyeMidY = (le.y + re.y) / 2;
+  const eyeDist = Math.hypot(re.x - le.x, re.y - le.y) || 1e-6;
+  const noseDrop = (nose.y - eyeMidY) / eyeDist; // front-facing ≈ 0.55–0.95
+
+  if (
+    Math.abs(yawOffset) > 0.14 ||
+    Math.abs(roll) > 13 ||
+    noseDrop < 0.42 || // chin up / looking up
+    noseDrop > 1.3 // looking down
+  ) {
     return { ok: false, reason: "pose" };
   }
   return { ok: true };
@@ -75,35 +87,52 @@ export function assessQuality(data: ImageData): { ok: boolean; reason?: GateReas
   const n = width * height;
   if (!n) return { ok: true };
 
-  // grayscale + per-half brightness + Laplacian variance (sharpness)
+  // grayscale + quadrant brightness + deep-shadow fraction + sharpness
   const gray = new Float32Array(n);
   let sum = 0;
-  let leftSum = 0;
-  let rightSum = 0;
-  let leftN = 0;
-  let rightN = 0;
-  const half = width / 2;
+  let leftSum = 0,
+    rightSum = 0,
+    topSum = 0,
+    botSum = 0;
+  let leftN = 0,
+    rightN = 0,
+    topN = 0,
+    botN = 0,
+    darkN = 0;
+  const halfX = width / 2;
+  const halfY = height / 2;
   for (let i = 0, p = 0; i < n; i++, p += 4) {
     const g = 0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2];
     gray[i] = g;
     sum += g;
+    if (g < 42) darkN++;
     const x = i % width;
-    if (x < half) {
+    const y = (i / width) | 0;
+    if (x < halfX) {
       leftSum += g;
       leftN++;
     } else {
       rightSum += g;
       rightN++;
     }
+    if (y < halfY) {
+      topSum += g;
+      topN++;
+    } else {
+      botSum += g;
+      botN++;
+    }
   }
   const mean = sum / n;
-  const leftMean = leftN ? leftSum / leftN : mean;
-  const rightMean = rightN ? rightSum / rightN : mean;
-  const uneven = Math.abs(leftMean - rightMean);
+  const lr = Math.abs((leftN ? leftSum / leftN : mean) - (rightN ? rightSum / rightN : mean));
+  const tb = Math.abs((topN ? topSum / topN : mean) - (botN ? botSum / botN : mean));
+  const darkFrac = darkN / n;
 
-  if (mean < 55) return { ok: false, reason: "dark" };
-  if (mean > 212) return { ok: false, reason: "bright" };
-  if (uneven > 70) return { ok: false, reason: "dark" }; // harsh side-light
+  if (mean < 72) return { ok: false, reason: "dark" }; // dim / underlit
+  if (mean > 210) return { ok: false, reason: "bright" }; // blown out
+  if (darkFrac > 0.3) return { ok: false, reason: "dark" }; // deep shadows on the face
+  // Directional light: side-light (left/right) or screen/under-light (top/bottom)
+  if (lr > 46 || tb > 52) return { ok: false, reason: "uneven" };
 
   // Laplacian variance (4-neighbour) on the interior.
   let lapSum = 0;
@@ -122,7 +151,7 @@ export function assessQuality(data: ImageData): { ok: boolean; reason?: GateReas
   if (count) {
     const m = lapSum / count;
     const variance = lapSq / count - m * m;
-    if (variance < 12) return { ok: false, reason: "blurry" };
+    if (variance < 16) return { ok: false, reason: "blurry" };
   }
   return { ok: true };
 }

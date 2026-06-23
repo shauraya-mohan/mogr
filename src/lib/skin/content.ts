@@ -205,9 +205,18 @@ export const SKIN_COPY = {
 export const GATE_REASONS = {
   "no-face": "No face detected — center your face in the frame.",
   "multi-face": "More than one face — make sure it's just you.",
-  pose: "Face the camera straight on.",
-  dark: "Too dark — find better light.",
+  pose: "Look straight at the camera — chin level.",
+  dark: "Too dark — find even, bright light.",
   bright: "Too bright / washed out — reduce glare.",
+  uneven: "Uneven light — face a window, not a screen.",
   blurry: "A little blurry — hold steady.",
 } as const;
+
+/** Concise capture tips shown beside the skin scanner. */
+export const SKIN_TIPS: { label: string; text: string }[] = [
+  { label: "Light", text: "Even, bright light. Face a window — not a lamp or screen behind you." },
+  { label: "Angle", text: "Look straight at the camera, chin level — don't tilt up or down." },
+  { label: "Face", text: "Neutral expression. No glasses, hat, or filters." },
+  { label: "Frame", text: "Fill the oval and hold still." },
+];
 export type GateReason = keyof typeof GATE_REASONS;

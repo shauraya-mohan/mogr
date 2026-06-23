@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/Button";
 import { ImageUploadTrigger } from "@/components/app/ImageUpload";
-import { SKIN_COPY, GATE_REASONS, type GateReason } from "@/lib/skin/content";
+import { SKIN_COPY, SKIN_TIPS, GATE_REASONS, type GateReason } from "@/lib/skin/content";
 import {
   assessPose,
   assessQuality,
@@ -34,18 +34,22 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   const lastLm = useRef<Landmark[] | null>(null);
   const rafRef = useRef<number | null>(null);
   const workCanvas = useRef<HTMLCanvasElement | null>(null);
+  const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ready, setReady] = useState(false);
   const [gateOn, setGateOn] = useState(true); // false if MediaPipe can't load
   const [passing, setPassing] = useState(false);
   const [reason, setReason] = useState<GateReason | null>("no-face");
   const [capturing, setCapturing] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [useUpload, setUseUpload] = useState(false);
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+    if (scanTimer.current) clearTimeout(scanTimer.current);
+    scanTimer.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     landmarkerRef.current?.close();
@@ -167,9 +171,18 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
     return assessQuality(ctx.getImageData(sx, sy, sw, sh));
   }
 
+  // Run the scan-sweep, then grab the frame at the end (like the hair scan).
   function handleCapture() {
+    if (!videoRef.current || capturing || scanning || (gateOn && !passing)) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setScanning(true);
+    scanTimer.current = setTimeout(grab, reduced ? 320 : 1900);
+  }
+
+  function grab() {
     const video = videoRef.current;
-    if (!video || capturing || (gateOn && !passing)) return;
+    if (!video) return;
+    setScanning(false);
     setCapturing(true);
     const c = document.createElement("canvas");
     c.width = video.videoWidth;
@@ -211,7 +224,8 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   const statusText = reason ? GATE_REASONS[reason] : "Looks good — hold still";
 
   return (
-    <div className="max-w-[560px]">
+    <div className="grid items-start gap-[clamp(32px,5vw,64px)] lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
+      <div>
       <p className="eyebrow mb-4">{SKIN_COPY.gateEyebrow}</p>
       <h1 className="font-display text-[clamp(30px,5vw,44px)] font-bold leading-[0.95] tracking-[-0.04em] mb-3">
         {SKIN_COPY.gateTitle}
@@ -234,7 +248,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
         )}
 
         {/* reticle — bronze when passing, stone otherwise */}
-        {ready && !preview && (
+        {ready && !preview && !scanning && (
           <div
             className={`pointer-events-none absolute inset-6 rounded-[120px] border-2 transition-colors duration-300 ${
               passing ? "border-bronze/70" : "border-[#F4F2EC]/30"
@@ -243,7 +257,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
         )}
 
         {/* status pill */}
-        {ready && !preview && (
+        {ready && !preview && !scanning && (
           <div className="absolute inset-x-0 bottom-4 flex justify-center">
             <span
               className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] backdrop-blur-md [text-shadow:0_1px_8px_rgba(0,0,0,0.5)] ${
@@ -252,6 +266,21 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
             >
               <span className={`h-1.5 w-1.5 rounded-full ${passing ? "bg-bronze" : "bg-[#F4F2EC]/60"}`} />
               {statusText}
+            </span>
+          </div>
+        )}
+
+        {/* Active scan-sweep (like the hair scan) before the frame is grabbed */}
+        {scanning && !preview && (
+          <div className="absolute inset-0 z-[5]">
+            <div className="absolute inset-0 bg-black/15" />
+            <div className="scan-sweep">
+              <div className="scan-sweep__line" />
+              <div className="scan-sweep__glow" />
+            </div>
+            <span className="absolute left-1/2 top-5 -translate-x-1/2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#F4F2EC] [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
+              scanning
             </span>
           </div>
         )}
@@ -282,18 +311,38 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-4">
-        <Button onClick={handleCapture} size="lg" disabled={!ready || capturing || (gateOn && !passing)}>
-          {capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
+        <Button
+          onClick={handleCapture}
+          size="lg"
+          disabled={!ready || capturing || scanning || (gateOn && !passing)}
+        >
+          {scanning ? "Scanning…" : capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
         </Button>
         <button
           type="button"
           onClick={() => setUseUpload(true)}
-          disabled={capturing}
+          disabled={capturing || scanning}
           className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze disabled:opacity-50"
         >
           {SKIN_COPY.upload}
         </button>
       </div>
+      </div>
+
+      {/* Concise capture guidance */}
+      <aside className="hidden lg:block sticky top-[calc(var(--header-h)+32px)] pt-[44px]">
+        <p className="eyebrow mb-4">get a clean read</p>
+        <ul className="grid gap-3.5">
+          {SKIN_TIPS.map((t) => (
+            <li key={t.label} className="flex gap-3 text-[14px] leading-relaxed">
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-bronze" />
+              <span className="text-graphite">
+                <span className="font-medium text-ink">{t.label}.</span> {t.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </aside>
     </div>
   );
 }
