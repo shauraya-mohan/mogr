@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/Button";
 import { ImageUploadTrigger } from "@/components/app/ImageUpload";
-import { SKIN_COPY, SKIN_TIPS, GATE_REASONS, type GateReason } from "@/lib/skin/content";
+import { SKIN_COPY, SKIN_SIDE, SKIN_TIPS, GATE_REASONS, type GateReason } from "@/lib/skin/content";
 import {
   assessPose,
   assessQuality,
@@ -226,122 +226,132 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   return (
     <div className="grid items-start gap-[clamp(32px,5vw,64px)] lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
       <div>
-      <p className="eyebrow mb-4">{SKIN_COPY.gateEyebrow}</p>
-      <h1 className="font-display text-[clamp(30px,5vw,44px)] font-bold leading-[0.95] tracking-[-0.04em] mb-3">
-        {SKIN_COPY.gateTitle}
-      </h1>
-      <p className="text-graphite text-[15px] leading-relaxed max-w-[46ch] mb-6">
-        {SKIN_COPY.gateBody}
-      </p>
+        <p className="eyebrow mb-4">{SKIN_COPY.gateEyebrow}</p>
+        <h1 className="font-display text-[clamp(30px,5vw,44px)] font-bold leading-[0.95] tracking-[-0.04em] mb-3">
+          {SKIN_COPY.gateTitle}
+        </h1>
+        <p className="text-graphite text-[15px] leading-relaxed max-w-[46ch] mb-6">
+          {SKIN_COPY.gateBody}
+        </p>
 
-      <div className="relative overflow-hidden rounded-[18px] border border-[var(--ink-08)] bg-cloud aspect-[3/4] max-h-[min(68vh,620px)]">
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
-        />
-        {!ready && !preview && (
-          <div className="absolute inset-0 grid place-items-center">
-            <p className="font-mono text-[13px] text-stone">{SKIN_COPY.starting}</p>
-          </div>
-        )}
-
-        {/* reticle — bronze when passing, stone otherwise */}
-        {ready && !preview && !scanning && (
-          <div
-            className={`pointer-events-none absolute inset-6 rounded-[120px] border-2 transition-colors duration-300 ${
-              passing ? "border-bronze/70" : "border-[#F4F2EC]/30"
-            }`}
+        <div className="relative overflow-hidden rounded-[18px] border border-[var(--ink-08)] bg-cloud aspect-[3/4] max-h-[min(68vh,620px)]">
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
           />
-        )}
-
-        {/* status pill */}
-        {ready && !preview && !scanning && (
-          <div className="absolute inset-x-0 bottom-4 flex justify-center">
-            <span
-              className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] backdrop-blur-md [text-shadow:0_1px_8px_rgba(0,0,0,0.5)] ${
-                passing ? "bg-[rgba(176,122,60,0.22)] text-[#F4F2EC]" : "bg-black/40 text-[#F4F2EC]/85"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${passing ? "bg-bronze" : "bg-[#F4F2EC]/60"}`} />
-              {statusText}
-            </span>
-          </div>
-        )}
-
-        {/* Active scan-sweep (like the hair scan) before the frame is grabbed */}
-        {scanning && !preview && (
-          <div className="absolute inset-0 z-[5]">
-            <div className="absolute inset-0 bg-black/15" />
-            <div className="scan-sweep">
-              <div className="scan-sweep__line" />
-              <div className="scan-sweep__glow" />
+          {!ready && !preview && (
+            <div className="absolute inset-0 grid place-items-center">
+              <p className="font-mono text-[13px] text-stone">{SKIN_COPY.starting}</p>
             </div>
-            <span className="absolute left-1/2 top-5 -translate-x-1/2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#F4F2EC] [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
-              scanning
-            </span>
-          </div>
-        )}
+          )}
 
-        {/* Frozen shot + processing — never a dead feed */}
-        {preview && (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="Captured"
-              className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
+          {/* reticle — bronze when passing, stone otherwise */}
+          {ready && !preview && !scanning && (
+            <div
+              className={`pointer-events-none absolute inset-6 rounded-[120px] border-2 transition-colors duration-300 ${passing ? "border-bronze/70" : "border-[#F4F2EC]/30"
+                }`}
             />
-            <div className="absolute inset-0 grid place-items-center bg-black/45">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-bronze" />
-                <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]">
-                  {SKIN_COPY.scanning}
-                </p>
-              </div>
+          )}
+
+          {/* status pill */}
+          {ready && !preview && !scanning && (
+            <div className="absolute inset-x-0 bottom-4 flex justify-center">
+              <span
+                className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] backdrop-blur-md [text-shadow:0_1px_8px_rgba(0,0,0,0.5)] ${passing ? "bg-[rgba(176,122,60,0.22)] text-[#F4F2EC]" : "bg-black/40 text-[#F4F2EC]/85"
+                  }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${passing ? "bg-bronze" : "bg-[#F4F2EC]/60"}`} />
+                {statusText}
+              </span>
             </div>
-          </>
-        )}
+          )}
+
+          {/* Active scan-sweep (like the hair scan) before the frame is grabbed */}
+          {scanning && !preview && (
+            <div className="absolute inset-0 z-[5]">
+              <div className="absolute inset-0 bg-black/15" />
+              <div className="scan-sweep">
+                <div className="scan-sweep__line" />
+                <div className="scan-sweep__glow" />
+              </div>
+              <span className="absolute left-1/2 top-5 -translate-x-1/2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#F4F2EC] [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
+                scanning
+              </span>
+            </div>
+          )}
+
+          {/* Frozen shot + processing — never a dead feed */}
+          {preview && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={preview}
+                alt="Captured"
+                className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
+              />
+              <div className="absolute inset-0 grid place-items-center bg-black/45">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-bronze" />
+                  <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]">
+                    {SKIN_COPY.scanning}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <p className="mt-3 font-mono text-[11px] leading-relaxed text-stone max-w-[46ch]">
+          {SKIN_COPY.consent}
+        </p>
+
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <Button
+            onClick={handleCapture}
+            size="lg"
+            disabled={!ready || capturing || scanning || (gateOn && !passing)}
+          >
+            {scanning ? "Scanning…" : capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setUseUpload(true)}
+            disabled={capturing || scanning}
+            className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze disabled:opacity-50"
+          >
+            {SKIN_COPY.upload}
+          </button>
+        </div>
       </div>
 
-      <p className="mt-3 font-mono text-[11px] leading-relaxed text-stone max-w-[46ch]">
-        {SKIN_COPY.consent}
-      </p>
-
-      <div className="mt-5 flex flex-wrap items-center gap-4">
-        <Button
-          onClick={handleCapture}
-          size="lg"
-          disabled={!ready || capturing || scanning || (gateOn && !passing)}
-        >
-          {scanning ? "Scanning…" : capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
-        </Button>
-        <button
-          type="button"
-          onClick={() => setUseUpload(true)}
-          disabled={capturing || scanning}
-          className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze disabled:opacity-50"
-        >
-          {SKIN_COPY.upload}
-        </button>
-      </div>
-      </div>
-
-      {/* Concise capture guidance */}
+      {/* Right: branding + live framing reminders (mirrors hair scan) */}
       <aside className="hidden lg:block sticky top-[calc(var(--header-h)+32px)] pt-[44px]">
-        <p className="eyebrow mb-4">get a clean read</p>
-        <ul className="grid gap-3.5">
+        <p className="eyebrow mb-4">{SKIN_SIDE.eyebrow}</p>
+        <h2 className="font-display font-bold text-[clamp(24px,2.4vw,32px)] tracking-[-0.03em] leading-[1.05] mb-4">
+          {SKIN_SIDE.title}
+          <span className="dot">.</span>
+        </h2>
+        <p className="text-graphite text-[15px] leading-relaxed max-w-[42ch] mb-8">
+          {SKIN_SIDE.body}
+        </p>
+
+        <ul className="grid gap-4 mb-8">
           {SKIN_TIPS.map((t) => (
-            <li key={t.label} className="flex gap-3 text-[14px] leading-relaxed">
+            <li key={t.label} className="flex gap-3 text-[16px] leading-relaxed">
               <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-bronze" />
               <span className="text-graphite">
-                <span className="font-medium text-ink">{t.label}.</span> {t.text}
+                <span className="text-ink font-medium">{t.label}.</span> {t.text}
               </span>
             </li>
           ))}
         </ul>
+
+        <p className="font-mono text-[11px] tracking-[0.06em] leading-relaxed text-stone max-w-[42ch]">
+          {SKIN_SIDE.privacy}
+        </p>
       </aside>
     </div>
   );

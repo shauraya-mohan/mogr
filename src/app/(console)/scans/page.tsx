@@ -299,7 +299,7 @@ export default function ScansPage() {
     }
   }, [deleteTarget]);
 
-  const newScanHref = tab === "skin" ? "/skin" : "/scan";
+  const newScanHref = tab === "skin" ? "/skin?new=1" : "/scan";
 
   return (
     <>

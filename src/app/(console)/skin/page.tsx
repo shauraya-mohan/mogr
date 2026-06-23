@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/Button";
 import SkinCapture from "@/components/skin/SkinCapture";
@@ -15,7 +16,7 @@ import {
   type Severity,
 } from "@/lib/skin/content";
 
-type Mode = "loading" | "capture" | "questionnaire" | "analyzing" | "results";
+type Mode = "loading" | "capture" | "review" | "questionnaire" | "analyzing" | "results";
 
 const REGION_LABELS: Record<string, string> = {
   forehead: "forehead",
@@ -36,14 +37,19 @@ function fmtDate(iso: string): string {
 }
 
 export default function SkinPage() {
+  const searchParams = useSearchParams();
+  const forceNew = searchParams.get("new") === "1";
+
   const [mode, setMode] = useState<Mode>("loading");
   const [scanId, setScanId] = useState<string | null>(null);
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [answers, setAnswers] = useState<SkinQuestionnaire>({});
   const [read, setRead] = useState<SkinRead | null>(null);
   const [routine, setRoutine] = useState<SkinRoutine | null>(null);
   const [scanUrl, setScanUrl] = useState<string | null>(null);
   const [scanDate, setScanDate] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Sign the skin scan image + read its date (for the results view).
@@ -63,7 +69,12 @@ export default function SkinPage() {
   }
 
   // Load an existing read if present, else start a fresh scan.
+  // If ?new=1 is in the URL, skip straight to capture.
   useEffect(() => {
+    if (forceNew) {
+      setMode("capture");
+      return;
+    }
     const supabase = createClient();
     (async () => {
       const {
@@ -89,16 +100,32 @@ export default function SkinPage() {
         setMode("capture");
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceNew]);
 
-  async function handleCaptured(dataUrl: string) {
+  function handleCaptured(dataUrl: string) {
+    setCapturedPreview(dataUrl);
+    setError(null);
+    setMode("review");
+  }
+
+  function handleRetake() {
+    setCapturedPreview(null);
+    setMode("capture");
+  }
+
+  async function handleConfirmScan() {
+    if (!capturedPreview) return;
+    setSaving(true);
     setError(null);
     try {
-      const id = await uploadSkinScan(dataUrl);
+      const id = await uploadSkinScan(capturedPreview);
       setScanId(id);
+      setSaving(false);
       setMode("questionnaire");
     } catch {
       setError("Couldn't save the scan — try again.");
+      setSaving(false);
       setMode("capture");
     }
   }
@@ -152,13 +179,50 @@ export default function SkinPage() {
     return <p className="font-mono text-[13px] text-stone">Loading…</p>;
   }
 
-  // ── capture (unchanged) ──
+  // ── capture ──
   if (mode === "capture") {
     return (
       <>
         {error && <p className="mb-4 text-[14px] text-bronze">{error}</p>}
         <SkinCapture onCapture={handleCaptured} onError={(m) => setError(m)} />
       </>
+    );
+  }
+
+  // ── review (scan confirmation — preview / retake / use this photo) ──
+  if (mode === "review" && capturedPreview) {
+    return (
+      <div className="max-w-[560px]">
+        <p className="eyebrow mb-4">skin · review</p>
+        <h1 className="font-display text-[clamp(32px,6vw,48px)] font-bold leading-[0.95] tracking-[-0.04em] mb-6">
+          Look good?
+        </h1>
+
+        <div className="overflow-hidden rounded-[18px] border border-[var(--ink-08)] bg-cloud">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={capturedPreview}
+            alt="Your skin scan preview"
+            className="w-full aspect-[3/4] object-cover"
+          />
+        </div>
+
+        {error && <p className="mt-4 text-[14px] text-bronze">{error}</p>}
+
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Button onClick={handleConfirmScan} size="lg" disabled={saving}>
+            {saving ? "Saving…" : "Use this photo"}
+          </Button>
+          <button
+            type="button"
+            onClick={handleRetake}
+            disabled={saving}
+            className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze disabled:opacity-50"
+          >
+            {SKIN_COPY.retake}
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -190,11 +254,10 @@ export default function SkinPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: o.value }))}
-                      className={`rounded-full border px-4 py-2 text-[14px] transition-colors ${
-                        active
+                      className={`rounded-full border px-4 py-2 text-[14px] transition-colors ${active
                           ? "border-ink bg-ink text-bone"
                           : "border-[var(--ink-12)] text-graphite hover:border-bronze hover:text-ink"
-                      }`}
+                        }`}
                     >
                       {o.label}
                     </button>

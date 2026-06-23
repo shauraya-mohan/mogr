@@ -170,7 +170,7 @@ export const SKIN_COPY = {
   gateEyebrow: "skin · scan",
   gateTitle: "Let's get a clean read",
   gateBody:
-    "Face the camera straight on in good, even light. We check the framing before anything is sent — and bad shots never leave your device.",
+    "Face the camera straight on in good, even light. We check the framing before anything is sent, and bad shots never leave your device.",
   starting: "Starting camera…",
   capture: "Capture",
   scanning: "Reading your skin…",
@@ -203,19 +203,28 @@ export const SKIN_COPY = {
 
 /** Human labels for the gate failure reasons (spec §5). */
 export const GATE_REASONS = {
-  "no-face": "No face detected — center your face in the frame.",
-  "multi-face": "More than one face — make sure it's just you.",
-  pose: "Look straight at the camera — chin level.",
-  dark: "Too dark — find even, bright light.",
-  bright: "Too bright / washed out — reduce glare.",
-  uneven: "Uneven light — face a window, not a screen.",
-  blurry: "A little blurry — hold steady.",
+  "no-face": "No face detected. Center your face in the frame.",
+  "multi-face": "More than one face. Make sure it's just you.",
+  pose: "Look straight at the camera, chin level.",
+  dark: "Too dark. Find even, bright light.",
+  bright: "Too bright or washed out. Reduce glare.",
+  uneven: "Uneven light. Face a window, not a screen.",
+  blurry: "A little blurry. Hold steady.",
+} as const;
+
+/** Side-panel copy shown beside the skin scanner (mirrors hair scan layout). */
+export const SKIN_SIDE = {
+  eyebrow: "skincare",
+  title: "A clean frame, a sharper read",
+  body: "Line up straight on, in good light, nothing hiding your face. One pass reads your skin so we can build a routine that fits.",
+  privacy:
+    "Your photo is processed to generate your skin read and stays private to your account. Rejected shots never leave this device.",
 } as const;
 
 /** Concise capture tips shown beside the skin scanner. */
 export const SKIN_TIPS: { label: string; text: string }[] = [
-  { label: "Light", text: "Even, bright light. Face a window — not a lamp or screen behind you." },
-  { label: "Angle", text: "Look straight at the camera, chin level — don't tilt up or down." },
+  { label: "Light", text: "Even, bright light. Face a window, not a lamp or screen behind you." },
+  { label: "Angle", text: "Look straight at the camera, chin level. Don't tilt up or down." },
   { label: "Face", text: "Neutral expression. No glasses, hat, or filters." },
   { label: "Frame", text: "Fill the oval and hold still." },
 ];
