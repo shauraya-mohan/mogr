@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
+import { SKIN_QUESTIONS } from "@/lib/skin/content";
 
 interface StyleTile {
   id: string;
@@ -16,6 +17,32 @@ interface ScanCard {
   originalUrl: string | null;
   hair: StyleTile[];
 }
+interface SkinDetail {
+  label: string;
+  value: string;
+}
+interface SkinScan {
+  id: string;
+  date: string;
+  photoUrl: string | null;
+  details: SkinDetail[] | null; // present only for the latest analysed scan
+}
+
+/** Map stored skin questionnaire answers → human label/value pairs. */
+function mapSkinAnswers(q: Record<string, string>): SkinDetail[] {
+  return SKIN_QUESTIONS.map((question) => {
+    const val = q[question.id];
+    if (!val) return null;
+    const opt = question.options.find((o) => o.value === val);
+    return { label: question.label, value: opt?.label ?? val };
+  }).filter(Boolean) as SkinDetail[];
+}
+
+const SCAN_TABS = [
+  { key: "selfie", label: "Hair & facial hair" },
+  { key: "skin", label: "Skin" },
+] as const;
+type ScanTab = (typeof SCAN_TABS)[number]["key"];
 
 function fmtDate(iso: string): string {
   try {
@@ -170,8 +197,10 @@ function DeleteButton({ onClick }: { onClick: () => void }) {
 /* ------------------------------------------------------------------ */
 export default function ScansPage() {
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<ScanTab>("selfie");
   const [cards, setCards] = useState<ScanCard[]>([]);
-  const [deleteTarget, setDeleteTarget] = useState<ScanCard | null>(null);
+  const [skinCards, setSkinCards] = useState<SkinScan[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; date: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -182,24 +211,37 @@ export default function ScansPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [{ data: scans }, { data: styles }] = await Promise.all([
-        supabase
-          .from("scans")
-          .select("id, storage_path, created_at")
-          .eq("user_id", user.id)
-          .eq("kind", "selfie")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("hair_styles")
-          .select("id, name, preview_path, status, scan_id")
-          .eq("user_id", user.id)
-          .order("sort_order", { ascending: true }),
-      ]);
+      const [{ data: selfies }, { data: styles }, { data: skins }, { data: skinProfile }] =
+        await Promise.all([
+          supabase
+            .from("scans")
+            .select("id, storage_path, created_at")
+            .eq("user_id", user.id)
+            .eq("kind", "selfie")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("hair_styles")
+            .select("id, name, preview_path, status, scan_id")
+            .eq("user_id", user.id)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("scans")
+            .select("id, storage_path, created_at")
+            .eq("user_id", user.id)
+            .eq("kind", "skin")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("skin_profiles")
+            .select("scan_id, questionnaire")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
 
-      // Batch-sign every storage path we need (originals + ready previews).
+      // Batch-sign every storage path (selfies + hair previews + skin photos).
       const paths = [
-        ...(scans ?? []).map((s) => s.storage_path),
+        ...(selfies ?? []).map((s) => s.storage_path),
         ...(styles ?? []).map((s) => s.preview_path).filter(Boolean),
+        ...(skins ?? []).map((s) => s.storage_path),
       ] as string[];
       const signedMap = new Map<string, string>();
       if (paths.length) {
@@ -211,20 +253,33 @@ export default function ScansPage() {
         });
       }
 
-      const built: ScanCard[] = (scans ?? []).map((scan) => ({
-        id: scan.id,
-        date: fmtDate(scan.created_at),
-        originalUrl: signedMap.get(scan.storage_path) ?? null,
-        hair: (styles ?? [])
-          .filter((st) => st.scan_id === scan.id)
-          .map((st) => ({
-            id: st.id,
-            name: st.name,
-            url: st.preview_path ? (signedMap.get(st.preview_path) ?? null) : null,
-          })),
-      }));
+      setCards(
+        (selfies ?? []).map((scan) => ({
+          id: scan.id,
+          date: fmtDate(scan.created_at),
+          originalUrl: signedMap.get(scan.storage_path) ?? null,
+          hair: (styles ?? [])
+            .filter((st) => st.scan_id === scan.id)
+            .map((st) => ({
+              id: st.id,
+              name: st.name,
+              url: st.preview_path ? (signedMap.get(st.preview_path) ?? null) : null,
+            })),
+        })),
+      );
 
-      setCards(built);
+      // Manual details only exist for the latest analysed skin scan (per design).
+      const analysedScanId = skinProfile?.scan_id as string | undefined;
+      const q = (skinProfile?.questionnaire ?? null) as Record<string, string> | null;
+      setSkinCards(
+        (skins ?? []).map((scan) => ({
+          id: scan.id,
+          date: fmtDate(scan.created_at),
+          photoUrl: signedMap.get(scan.storage_path) ?? null,
+          details: analysedScanId && scan.id === analysedScanId && q ? mapSkinAnswers(q) : null,
+        })),
+      );
+
       setLoading(false);
     })();
   }, []);
@@ -233,11 +288,10 @@ export default function ScansPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/scans/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/scans/${deleteTarget.id}`, { method: "DELETE" });
       if (res.ok) {
         setCards((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+        setSkinCards((prev) => prev.filter((c) => c.id !== deleteTarget.id));
       }
     } finally {
       setDeleting(false);
@@ -245,119 +299,197 @@ export default function ScansPage() {
     }
   }, [deleteTarget]);
 
+  const newScanHref = tab === "skin" ? "/skin" : "/scan";
+
   return (
     <>
       {/* Modal keyframe (scoped to this page) */}
       <style>{`@keyframes modalIn{from{opacity:0;transform:scale(0.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
 
-      <header className="mb-[clamp(24px,4vh,40px)] flex items-end justify-between gap-6">
+      <header className="mb-[clamp(20px,3vh,32px)] flex items-end justify-between gap-6">
         <div>
           <p className="eyebrow mb-3">your scans</p>
           <h1 className="font-display text-[clamp(32px,5vw,48px)] font-bold leading-[0.95] tracking-[-0.04em]">
             Scans
           </h1>
         </div>
-        <Button href="/scan" dot={false}>
+        <Button href={newScanHref} dot={false}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          New scan
+          {tab === "skin" ? "New skin scan" : "New scan"}
         </Button>
       </header>
 
+      {/* Tabs */}
+      <div className="mb-7 flex gap-7 border-b border-[var(--ink-08)]">
+        {SCAN_TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              aria-current={active ? "page" : undefined}
+              className={`relative -mb-px pb-3 font-mono text-[12px] uppercase tracking-[0.12em] transition-colors ${
+                active ? "text-bronze" : "text-stone hover:text-ink"
+              }`}
+            >
+              {t.label}
+              {active && <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-bronze" />}
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <p className="font-mono text-[13px] text-stone">Loading…</p>
-      ) : cards.length === 0 ? (
-        <div className="rounded-[20px] border border-dashed border-[var(--ink-12)] p-10 text-center">
-          <p className="font-display text-[22px] font-bold tracking-[-0.02em] mb-2">
-            No scans yet<span className="dot">.</span>
-          </p>
-          <p className="text-graphite text-[15px] mb-6">
-            Take your first scan and your reads will live here.
-          </p>
-          <Button href="/scan" size="lg">
-            Start a scan
-          </Button>
-        </div>
+      ) : tab === "selfie" ? (
+        cards.length === 0 ? (
+          <EmptyState href="/scan" label="hair scans" />
+        ) : (
+          <div className="space-y-[clamp(16px,2.5vw,24px)]">
+            {cards.map((scan) => (
+              <article
+                key={scan.id}
+                className="overflow-hidden rounded-[20px] border border-[var(--ink-08)] bg-cloud"
+              >
+                <div className="grid md:grid-cols-[228px_1fr]">
+                  <div className="border-b border-[var(--ink-08)] p-5 md:border-b-0 md:border-r">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="font-display text-[15px] font-bold tracking-[-0.01em] text-ink">
+                        {scan.date}
+                      </p>
+                      <DeleteButton onClick={() => setDeleteTarget({ id: scan.id, date: scan.date })} />
+                    </div>
+                    <div className="relative aspect-[3/4] max-w-[180px] overflow-hidden rounded-[12px] bg-[#2C2B27]">
+                      {scan.originalUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={scan.originalUrl}
+                          alt="Original scan"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-stone">
+                      original photo
+                    </p>
+                  </div>
+
+                  <div className="space-y-6 p-5">
+                    <section>
+                      <p className="mb-3 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
+                        Hair
+                      </p>
+                      {scan.hair.length ? (
+                        <div className="flex flex-wrap gap-3">
+                          {scan.hair.map((h) => (
+                            <Link
+                              key={h.id}
+                              href="/hair"
+                              title={h.name}
+                              className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[12px] border border-[var(--ink-08)] bg-[#2C2B27]"
+                            >
+                              {h.url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={h.url}
+                                  alt={h.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
+                                />
+                              ) : (
+                                <span className="absolute inset-0 grid place-items-center p-2 text-center font-display text-[11px] font-medium leading-tight text-[#F4F2EC]/60">
+                                  {h.name}
+                                </span>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="font-mono text-[12px] text-stone">
+                          No styles yet —{" "}
+                          <Link href="/hair" className="text-bronze hover:text-ink">
+                            generate them
+                          </Link>
+                        </p>
+                      )}
+                    </section>
+
+                    <section>
+                      <p className="mb-3 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
+                        Facial hair
+                      </p>
+                      <p className="font-mono text-[12px] tracking-[0.04em] text-stone">
+                        Coming soon<span className="dot">.</span>
+                      </p>
+                    </section>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )
+      ) : skinCards.length === 0 ? (
+        <EmptyState href="/skin" label="skin scans" />
       ) : (
         <div className="space-y-[clamp(16px,2.5vw,24px)]">
-          {cards.map((scan) => (
+          {skinCards.map((scan) => (
             <article
               key={scan.id}
               className="overflow-hidden rounded-[20px] border border-[var(--ink-08)] bg-cloud"
             >
               <div className="grid md:grid-cols-[228px_1fr]">
-                {/* Date + original photo */}
                 <div className="border-b border-[var(--ink-08)] p-5 md:border-b-0 md:border-r">
                   <div className="mb-3 flex items-center justify-between">
                     <p className="font-display text-[15px] font-bold tracking-[-0.01em] text-ink">
                       {scan.date}
                     </p>
-                    <DeleteButton onClick={() => setDeleteTarget(scan)} />
+                    <DeleteButton onClick={() => setDeleteTarget({ id: scan.id, date: scan.date })} />
                   </div>
                   <div className="relative aspect-[3/4] max-w-[180px] overflow-hidden rounded-[12px] bg-[#2C2B27]">
-                    {scan.originalUrl && (
+                    {scan.photoUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={scan.originalUrl}
-                        alt="Original scan"
+                        src={scan.photoUrl}
+                        alt="Skin scan"
                         className="absolute inset-0 h-full w-full object-cover"
                       />
                     )}
                   </div>
                   <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-stone">
-                    original photo
+                    scan photo
                   </p>
                 </div>
 
-                {/* Results */}
-                <div className="space-y-6 p-5">
-                  <section>
-                    <p className="mb-3 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
-                      Hair
-                    </p>
-                    {scan.hair.length ? (
-                      <div className="flex flex-wrap gap-3">
-                        {scan.hair.map((h) => (
-                          <Link
-                            key={h.id}
-                            href="/hair"
-                            title={h.name}
-                            className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[12px] border border-[var(--ink-08)] bg-[#2C2B27]"
-                          >
-                            {h.url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={h.url}
-                                alt={h.name}
-                                className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
-                              />
-                            ) : (
-                              <span className="absolute inset-0 grid place-items-center p-2 text-center font-display text-[11px] font-medium leading-tight text-[#F4F2EC]/60">
-                                {h.name}
-                              </span>
-                            )}
-                          </Link>
+                <div className="p-5">
+                  <p className="mb-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
+                    Your answers
+                  </p>
+                  {scan.details ? (
+                    <>
+                      <dl className="grid gap-4 sm:grid-cols-2">
+                        {scan.details.map((d) => (
+                          <div key={d.label}>
+                            <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-stone">
+                              {d.label}
+                            </dt>
+                            <dd className="mt-0.5 text-[15px] text-ink">{d.value}</dd>
+                          </div>
                         ))}
-                      </div>
-                    ) : (
-                      <p className="font-mono text-[12px] text-stone">
-                        No styles yet —{" "}
-                        <Link href="/hair" className="text-bronze hover:text-ink">
-                          generate them
-                        </Link>
-                      </p>
-                    )}
-                  </section>
-
-                  <section>
-                    <p className="mb-3 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
-                      Facial hair
+                      </dl>
+                      <Link
+                        href="/skin"
+                        className="mt-5 inline-block font-mono text-[12px] uppercase tracking-[0.1em] text-bronze transition-colors hover:text-ink"
+                      >
+                        view read →
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="font-mono text-[12px] text-stone">
+                      No saved details for this scan.
                     </p>
-                    <p className="font-mono text-[12px] tracking-[0.04em] text-stone">
-                      Coming soon<span className="dot">.</span>
-                    </p>
-                  </section>
+                  )}
                 </div>
               </div>
             </article>
@@ -369,11 +501,30 @@ export default function ScansPage() {
       {deleteTarget && (
         <DeleteModal
           scanDate={deleteTarget.date}
-          onCancel={() => { setDeleteTarget(null); setDeleting(false); }}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleting(false);
+          }}
           onConfirm={handleDelete}
           deleting={deleting}
         />
       )}
     </>
+  );
+}
+
+function EmptyState({ href, label }: { href: string; label: string }) {
+  return (
+    <div className="rounded-[20px] border border-dashed border-[var(--ink-12)] p-10 text-center">
+      <p className="mb-2 font-display text-[22px] font-bold tracking-[-0.02em]">
+        No {label} yet<span className="dot">.</span>
+      </p>
+      <p className="mb-6 text-[15px] text-graphite">
+        Take a scan and your reads will live here.
+      </p>
+      <Button href={href} size="lg">
+        Start a scan
+      </Button>
+    </div>
   );
 }

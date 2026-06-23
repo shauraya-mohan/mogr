@@ -72,13 +72,14 @@ export default function SkinPage() {
       if (!user) return;
       const { data } = await supabase
         .from("skin_profiles")
-        .select("data, scan_id")
+        .select("data, scan_id, questionnaire")
         .eq("user_id", user.id)
         .maybeSingle();
       const d = data?.data as { read?: SkinRead; routine?: SkinRoutine } | null;
       if (d?.read && d?.routine) {
         setRead(d.read);
         setRoutine(d.routine);
+        if (data?.questionnaire) setAnswers(data.questionnaire as SkinQuestionnaire);
         if (data?.scan_id) {
           setScanId(data.scan_id);
           loadScanMeta(data.scan_id);
@@ -206,10 +207,19 @@ export default function SkinPage() {
 
         {error && <p className="mt-6 text-[14px] text-bronze">{error}</p>}
 
-        <div className="mt-8">
+        <div className="mt-8 flex items-center gap-5">
           <Button onClick={analyze} size="lg" disabled={!allAnswered || busy}>
-            {busy ? SKIN_COPY.analyzing : SKIN_COPY.analyze}
+            {busy ? SKIN_COPY.analyzing : read ? "Update my read" : SKIN_COPY.analyze}
           </Button>
+          {read && !busy && (
+            <button
+              type="button"
+              onClick={() => setMode("results")}
+              className="font-mono text-[13px] uppercase tracking-[0.12em] text-graphite transition-colors hover:text-bronze"
+            >
+              cancel
+            </button>
+          )}
         </div>
       </div>
     );
@@ -340,7 +350,20 @@ export default function SkinPage() {
       )}
 
       {/* Routine */}
-      <p className="eyebrow mb-5 mt-[clamp(28px,4vh,44px)]">{SKIN_COPY.routineTitle}</p>
+      <div className="mb-5 mt-[clamp(28px,4vh,44px)] flex items-center justify-between gap-4">
+        <p className="eyebrow">{SKIN_COPY.routineTitle}</p>
+        <button
+          type="button"
+          onClick={() => setMode("questionnaire")}
+          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--ink-12)] px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-graphite transition-colors hover:border-bronze hover:text-ink"
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z" />
+          </svg>
+          Edit answers
+        </button>
+      </div>
       <div className="grid items-start gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
         <RoutineCard title={SKIN_COPY.am} steps={routine?.am ?? []} icon={<SunIcon />} />
         <RoutineCard title={SKIN_COPY.pm} steps={routine?.pm ?? []} icon={<MoonIcon />} />

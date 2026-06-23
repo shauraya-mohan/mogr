@@ -4,12 +4,10 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { HAIR_QUESTIONS, type Questionnaire } from "@/lib/hair/content";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
-import SkinPreferences from "@/components/skin/SkinPreferences";
 import FacialHairPreferences from "@/components/facial-hair/FacialHairPreferences";
 import type { CategoryKey } from "@/lib/dashboard/data";
 
 const TABS: { key: CategoryKey; label: string }[] = [
-  { key: "skin", label: "Skin" },
   { key: "hair", label: "Hair" },
   { key: "facial-hair", label: "Facial hair" },
   { key: "wardrobe", label: "Wardrobe" },
@@ -190,8 +188,6 @@ export default function EditPreferences() {
                     </p>
                   </div>
                 </>
-              ) : tab === "skin" ? (
-                <SkinPreferences />
               ) : tab === "facial-hair" ? (
                 <FacialHairPreferences />
               ) : (
