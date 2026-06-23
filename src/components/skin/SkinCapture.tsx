@@ -34,22 +34,19 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   const lastLm = useRef<Landmark[] | null>(null);
   const rafRef = useRef<number | null>(null);
   const workCanvas = useRef<HTMLCanvasElement | null>(null);
-  const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ready, setReady] = useState(false);
   const [gateOn, setGateOn] = useState(true); // false if MediaPipe can't load
   const [passing, setPassing] = useState(false);
   const [reason, setReason] = useState<GateReason | null>("no-face");
   const [capturing, setCapturing] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [useUpload, setUseUpload] = useState(false);
+  const [ringLight, setRingLight] = useState(false); // screen-based fill light
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
-    if (scanTimer.current) clearTimeout(scanTimer.current);
-    scanTimer.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     landmarkerRef.current?.close();
@@ -171,18 +168,12 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
     return assessQuality(ctx.getImageData(sx, sy, sw, sh));
   }
 
-  // Run the scan-sweep, then grab the frame at the end (like the hair scan).
+  // Grab the current frame immediately (no animation). The captured image is
+  // the true camera orientation — NOT mirrored — even though the live preview
+  // is flipped for natural selfie framing.
   function handleCapture() {
-    if (!videoRef.current || capturing || scanning || (gateOn && !passing)) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setScanning(true);
-    scanTimer.current = setTimeout(grab, reduced ? 320 : 1900);
-  }
-
-  function grab() {
     const video = videoRef.current;
-    if (!video) return;
-    setScanning(false);
+    if (!video || capturing || (gateOn && !passing)) return;
     setCapturing(true);
     const c = document.createElement("canvas");
     c.width = video.videoWidth;
@@ -194,12 +185,28 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
     }
     ctx.drawImage(video, 0, 0);
     // Freeze the shot for display so the box never shows a dead/black feed
-    // while the parent uploads + analyses.
+    // while the parent transitions to the review screen.
     setPreview(c.toDataURL("image/jpeg", 0.85));
     const lm = lastLm.current;
-    const dataUrl = lm ? cropAndWhiteBalance(c, faceBBox(lm, 0.25)) : c.toDataURL("image/jpeg", 0.9);
+    // Mirror the output so it matches the live selfie preview the user saw.
+    const dataUrl = lm
+      ? cropAndWhiteBalance(c, faceBBox(lm, 0.25), 768, true)
+      : mirrorCanvas(c);
     stop();
     onCapture(dataUrl);
+  }
+
+  /** Return a horizontally-flipped JPEG data URL of a canvas (selfie match). */
+  function mirrorCanvas(src: HTMLCanvasElement): string {
+    const m = document.createElement("canvas");
+    m.width = src.width;
+    m.height = src.height;
+    const mc = m.getContext("2d");
+    if (!mc) return src.toDataURL("image/jpeg", 0.9);
+    mc.translate(m.width, 0);
+    mc.scale(-1, 1);
+    mc.drawImage(src, 0, 0);
+    return m.toDataURL("image/jpeg", 0.9);
   }
 
   // ── Upload fallback ──
@@ -247,8 +254,20 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
             </div>
           )}
 
+          {/* Ring light — a bright white halo around the frame that uses the
+              screen to throw fill light on the face (à la FaceTime). */}
+          {ringLight && ready && !preview && (
+            <div
+              className="pointer-events-none absolute inset-0 z-[3] rounded-[18px]"
+              style={{
+                boxShadow:
+                  "inset 0 0 0 18px rgba(255,255,255,0.96), inset 0 0 80px 26px rgba(255,255,255,0.7)",
+              }}
+            />
+          )}
+
           {/* reticle — bronze when passing, stone otherwise */}
-          {ready && !preview && !scanning && (
+          {ready && !preview && (
             <div
               className={`pointer-events-none absolute inset-6 rounded-[120px] border-2 transition-colors duration-300 ${passing ? "border-bronze/70" : "border-[#F4F2EC]/30"
                 }`}
@@ -256,7 +275,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
           )}
 
           {/* status pill */}
-          {ready && !preview && !scanning && (
+          {ready && !preview && (
             <div className="absolute inset-x-0 bottom-4 flex justify-center">
               <span
                 className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] backdrop-blur-md [text-shadow:0_1px_8px_rgba(0,0,0,0.5)] ${passing ? "bg-[rgba(176,122,60,0.22)] text-[#F4F2EC]" : "bg-black/40 text-[#F4F2EC]/85"
@@ -264,21 +283,6 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${passing ? "bg-bronze" : "bg-[#F4F2EC]/60"}`} />
                 {statusText}
-              </span>
-            </div>
-          )}
-
-          {/* Active scan-sweep (like the hair scan) before the frame is grabbed */}
-          {scanning && !preview && (
-            <div className="absolute inset-0 z-[5]">
-              <div className="absolute inset-0 bg-black/15" />
-              <div className="scan-sweep">
-                <div className="scan-sweep__line" />
-                <div className="scan-sweep__glow" />
-              </div>
-              <span className="absolute left-1/2 top-5 -translate-x-1/2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#F4F2EC] [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
-                scanning
               </span>
             </div>
           )}
@@ -304,6 +308,29 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
           )}
         </div>
 
+        {/* Ring light toggle */}
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={ringLight}
+            aria-label="Toggle ring light"
+            onClick={() => setRingLight((v) => !v)}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-300 ${
+              ringLight ? "bg-bronze" : "bg-[var(--ink-12)]"
+            }`}
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-bone shadow-sm transition-transform duration-300 ${
+                ringLight ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+          <p className="text-[14px] leading-snug text-graphite">
+            <span className="font-medium text-ink">Ring light</span> — brighten your face using the screen
+          </p>
+        </div>
+
         <p className="mt-3 font-mono text-[11px] leading-relaxed text-stone max-w-[46ch]">
           {SKIN_COPY.consent}
         </p>
@@ -312,14 +339,14 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
           <Button
             onClick={handleCapture}
             size="lg"
-            disabled={!ready || capturing || scanning || (gateOn && !passing)}
+            disabled={!ready || capturing || (gateOn && !passing)}
           >
-            {scanning ? "Scanning…" : capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
+            {capturing ? SKIN_COPY.scanning : SKIN_COPY.capture}
           </Button>
           <button
             type="button"
             onClick={() => setUseUpload(true)}
-            disabled={capturing || scanning}
+            disabled={capturing}
             className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze disabled:opacity-50"
           >
             {SKIN_COPY.upload}

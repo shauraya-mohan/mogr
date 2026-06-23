@@ -164,6 +164,7 @@ export function cropAndWhiteBalance(
   source: HTMLCanvasElement,
   bbox: { x: number; y: number; w: number; h: number },
   outEdge = 768,
+  mirror = false,
 ): string {
   const sx = Math.round(bbox.x * source.width);
   const sy = Math.round(bbox.y * source.height);
@@ -179,7 +180,15 @@ export function cropAndWhiteBalance(
   out.height = oh;
   const ctx = out.getContext("2d");
   if (!ctx) return source.toDataURL("image/jpeg", 0.9);
+  // The crop region (sx..) is in the true camera orientation that matches the
+  // landmarks. When mirror=true we flip on draw so the output matches the live
+  // selfie preview (no perceived flip for the user).
+  if (mirror) {
+    ctx.translate(ow, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(source, sx, sy, sw, sh, 0, 0, ow, oh);
+  if (mirror) ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // gray-world white balance
   const img = ctx.getImageData(0, 0, ow, oh);
