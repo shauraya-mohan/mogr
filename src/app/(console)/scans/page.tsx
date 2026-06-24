@@ -16,6 +16,7 @@ interface ScanCard {
   date: string;
   originalUrl: string | null;
   hair: StyleTile[];
+  facialHair: StyleTile[];
 }
 interface SkinDetail {
   label: string;
@@ -108,7 +109,7 @@ function DeleteModal({
               Delete scan<span className="dot">?</span>
             </h2>
             <p className="mt-2 text-[14px] leading-[1.5] text-graphite">
-              This will permanently remove the scan from <span className="font-medium text-ink">{scanDate}</span> along with its associated hairstyle previews.
+              This will permanently remove the scan from <span className="font-medium text-ink">{scanDate}</span> along with its associated hairstyle and beard previews.
             </p>
             <div className="mt-6 flex gap-3">
               <button
@@ -211,7 +212,7 @@ export default function ScansPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [{ data: selfies }, { data: styles }, { data: skins }, { data: skinProfile }] =
+      const [{ data: selfies }, { data: styles }, { data: beardStyles }, { data: skins }, { data: skinProfile }] =
         await Promise.all([
           supabase
             .from("scans")
@@ -221,6 +222,11 @@ export default function ScansPage() {
             .order("created_at", { ascending: false }),
           supabase
             .from("hair_styles")
+            .select("id, name, preview_path, status, scan_id")
+            .eq("user_id", user.id)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("facial_hair_styles")
             .select("id, name, preview_path, status, scan_id")
             .eq("user_id", user.id)
             .order("sort_order", { ascending: true }),
@@ -237,10 +243,11 @@ export default function ScansPage() {
             .maybeSingle(),
         ]);
 
-      // Batch-sign every storage path (selfies + hair previews + skin photos).
+      // Batch-sign every storage path (selfies + hair/beard previews + skin photos).
       const paths = [
         ...(selfies ?? []).map((s) => s.storage_path),
         ...(styles ?? []).map((s) => s.preview_path).filter(Boolean),
+        ...(beardStyles ?? []).map((s) => s.preview_path).filter(Boolean),
         ...(skins ?? []).map((s) => s.storage_path),
       ] as string[];
       const signedMap = new Map<string, string>();
@@ -259,6 +266,13 @@ export default function ScansPage() {
           date: fmtDate(scan.created_at),
           originalUrl: signedMap.get(scan.storage_path) ?? null,
           hair: (styles ?? [])
+            .filter((st) => st.scan_id === scan.id)
+            .map((st) => ({
+              id: st.id,
+              name: st.name,
+              url: st.preview_path ? (signedMap.get(st.preview_path) ?? null) : null,
+            })),
+          facialHair: (beardStyles ?? [])
             .filter((st) => st.scan_id === scan.id)
             .map((st) => ({
               id: st.id,
@@ -420,9 +434,38 @@ export default function ScansPage() {
                       <p className="mb-3 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
                         Facial hair
                       </p>
-                      <p className="font-mono text-[12px] tracking-[0.04em] text-stone">
-                        Coming soon<span className="dot">.</span>
-                      </p>
+                      {scan.facialHair.length ? (
+                        <div className="flex flex-wrap gap-3">
+                          {scan.facialHair.map((h) => (
+                            <Link
+                              key={h.id}
+                              href="/facial-hair"
+                              title={h.name}
+                              className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[12px] border border-[var(--ink-08)] bg-[#2C2B27]"
+                            >
+                              {h.url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={h.url}
+                                  alt={h.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
+                                />
+                              ) : (
+                                <span className="absolute inset-0 grid place-items-center p-2 text-center font-display text-[11px] font-medium leading-tight text-[#F4F2EC]/60">
+                                  {h.name}
+                                </span>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="font-mono text-[12px] text-stone">
+                          No styles yet —{" "}
+                          <Link href="/facial-hair" className="text-bronze hover:text-ink">
+                            generate them
+                          </Link>
+                        </p>
+                      )}
                     </section>
                   </div>
                 </div>

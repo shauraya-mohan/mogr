@@ -8,8 +8,8 @@ export const runtime = "nodejs";
  *
  * Deletes a scan and all associated data:
  * 1. The scan's selfie file from storage
- * 2. Any hair_style preview images linked to this scan
- * 3. The hair_styles rows themselves (scan_id FK is SET NULL, so we delete explicitly)
+ * 2. Any hair_style / facial_hair_style preview images linked to this scan
+ * 3. The hair_styles + facial_hair_styles rows themselves (scan_id FK is SET NULL, so we delete explicitly)
  * 4. The scan row
  */
 export async function DELETE(
@@ -56,9 +56,32 @@ export async function DELETE(
       .eq("user_id", user.id);
   }
 
-  // Clear scan_id on hair_profiles if it references this scan.
+  // Same for facial-hair styles tied to this scan.
+  const { data: beardStyles } = await supabase
+    .from("facial_hair_styles")
+    .select("id, preview_path")
+    .eq("scan_id", id)
+    .eq("user_id", user.id);
+
+  if (beardStyles?.length) {
+    for (const s of beardStyles) {
+      if (s.preview_path) pathsToRemove.push(s.preview_path);
+    }
+    await supabase
+      .from("facial_hair_styles")
+      .delete()
+      .eq("scan_id", id)
+      .eq("user_id", user.id);
+  }
+
+  // Clear scan_id on hair_profiles + facial_hair_profiles if they reference this scan.
   await supabase
     .from("hair_profiles")
+    .update({ scan_id: null })
+    .eq("scan_id", id)
+    .eq("user_id", user.id);
+  await supabase
+    .from("facial_hair_profiles")
     .update({ scan_id: null })
     .eq("scan_id", id)
     .eq("user_id", user.id);

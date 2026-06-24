@@ -1,29 +1,649 @@
-/**
- * FACIAL-HAIR AGENT OWNS THIS FILE — placeholder.
- * Build the facial-hair feature here (see FEATURE_BUILD_GUIDE.md). It mirrors
- * the hair feature: scan → questionnaire → vision read → face-preserving beard
- * previews (gpt-image-2 edit) → save to looks. Clone the hair files and swap
- * "hair" for "facial hair" in the prompts/copy.
- */
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Button from "@/components/Button";
+import BeardcareSection from "@/components/facial-hair/BeardcareSection";
+import { createClient } from "@/lib/supabase/client";
+import {
+  FACIAL_HAIR_QUESTIONS,
+  FACIAL_HAIR_COPY,
+  type Questionnaire,
+} from "@/lib/facial-hair/content";
+
+interface Style {
+  id: string;
+  slug: string | null;
+  name: string;
+  rationale: string | null;
+  brief: string | null;
+  full_brief: string | null;
+  preview_path: string | null;
+  status: string;
+}
+interface Read {
+  face_shape: string | null;
+  growth: string | null; // descriptive growth-map read, shown in the body
+  length: string | null; // short header token, derived from the questionnaire
+}
+
+type Mode = "loading" | "need-scan" | "questionnaire" | "results";
+
+// Short, clean labels for the header length chip (kept terse on purpose).
+const LENGTH_LABEL: Record<string, string> = {
+  clean: "Clean-shaven",
+  stubble: "Stubble",
+  short: "Short",
+  long: "Long",
+};
+const lengthLabel = (q?: Partial<Questionnaire> | null): string | null =>
+  q?.length ? (LENGTH_LABEL[q.length] ?? null) : null;
 
 export default function FacialHairPage() {
+  const [mode, setMode] = useState<Mode>("loading");
+  const [answers, setAnswers] = useState<Partial<Questionnaire>>({});
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [read, setRead] = useState<Read>({ face_shape: null, growth: null, length: null });
+  const [styles, setStyles] = useState<Style[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const inFlight = useRef<Set<string>>(new Set());
+
+  // Newer-scan detection — offer to re-iterate on the most recent scan.
+  const [latestScan, setLatestScan] = useState<{ id: string; storage_path: string } | null>(null);
+  const [resultsScanId, setResultsScanId] = useState<string | null>(null);
+  const [storedQuestionnaire, setStoredQuestionnaire] = useState<Partial<Questionnaire> | null>(null);
+  const [newerDismissed, setNewerDismissed] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  // ---- initial load: scan? existing recommendations? ----
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: latest } = await supabase
+        .from("scans")
+        .select("id, storage_path")
+        .eq("user_id", user.id)
+        .eq("kind", "selfie")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!latest) {
+        setMode("need-scan");
+        return;
+      }
+      setLatestScan(latest);
+
+      const [{ data: fhs }, { data: fp }, { data: prof }] = await Promise.all([
+        supabase
+          .from("facial_hair_styles")
+          .select("id, slug, name, rationale, brief, full_brief, preview_path, status, scan_id")
+          .eq("user_id", user.id)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("facial_hair_profiles")
+          .select("growth, scan_id, questionnaire")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase.from("profiles").select("face_shape").eq("id", user.id).maybeSingle(),
+      ]);
+
+      if (fhs && fhs.length) {
+        // The scan the current recommendations were built on.
+        const baseScanId =
+          fp?.scan_id ?? (fhs[0] as { scan_id?: string }).scan_id ?? latest.id;
+        setResultsScanId(baseScanId);
+        setStoredQuestionnaire((fp?.questionnaire as Partial<Questionnaire>) ?? null);
+
+        setStyles(fhs as Style[]);
+        setRead({
+          face_shape: prof?.face_shape ?? null,
+          growth: fp?.growth ?? null,
+          length: lengthLabel(fp?.questionnaire as Partial<Questionnaire> | null),
+        });
+        setSelectedId(fhs[0].id);
+        setMode("results");
+      } else {
+        setMode("questionnaire");
+      }
+    })();
+  }, []);
+
+  // ---- ensure a style has an on-you preview ----
+  // `silent` = background pre-generation (don't drive the main loading state).
+  const ensurePreview = useCallback(
+    async (style: Style, silent = false) => {
+      if (previews[style.id] || inFlight.current.has(style.id)) return;
+      inFlight.current.add(style.id);
+      const supabase = createClient();
+      try {
+        // Already rendered → just sign it.
+        if (style.status === "ready" && style.preview_path) {
+          const { data } = await supabase.storage
+            .from("user-media")
+            .createSignedUrl(style.preview_path, 3600);
+          if (data?.signedUrl) setPreviews((p) => ({ ...p, [style.id]: data.signedUrl }));
+          return;
+        }
+        if (!silent) setPreviewLoading(true);
+        const res = await fetch("/api/facial-hair/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ styleId: style.id }),
+        });
+        const json = await res.json();
+        if (json.url) {
+          setPreviews((p) => ({ ...p, [style.id]: json.url }));
+          setStyles((prev) =>
+            prev.map((s) => (s.id === style.id ? { ...s, status: "ready" } : s)),
+          );
+        } else if (!silent) {
+          setError("Couldn't render that style — try again.");
+        }
+      } catch {
+        if (!silent) setError("Couldn't render that style — try again.");
+      } finally {
+        inFlight.current.delete(style.id);
+        if (!silent) setPreviewLoading(false);
+      }
+    },
+    [previews],
+  );
+
+  // Generate the preview whenever the selection changes (with the spinner).
+  useEffect(() => {
+    if (mode !== "results" || !selectedId) return;
+    const style = styles.find((s) => s.id === selectedId);
+    if (style) ensurePreview(style);
+    setShowFull(false);
+  }, [mode, selectedId, styles, ensurePreview]);
+
+  // Pre-generate the rest in the background so switching styles feels instant.
+  useEffect(() => {
+    if (mode !== "results") return;
+    let cancelled = false;
+    (async () => {
+      for (const s of styles) {
+        if (cancelled) return;
+        // one at a time to avoid hammering the image API
+        await ensurePreview(s, true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, styles, ensurePreview]);
+
+  async function submit() {
+    setError(null);
+    setAnalyzing(true);
+    try {
+      const res = await fetch("/api/facial-hair/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionnaire: answers }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error === "no-scan" ? "Take a scan first." : "Analysis failed — try again.");
+        setAnalyzing(false);
+        return;
+      }
+      setStyles(json.styles);
+      setRead({
+        face_shape: json.read.face_shape,
+        growth: json.read.growth,
+        length: lengthLabel(answers),
+      });
+      setSelectedId(json.styles[0]?.id ?? null);
+      setMode("results");
+    } catch {
+      setError("Analysis failed — try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function save(style: Style) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("saved_looks").insert({
+      user_id: user.id,
+      kind: "facial_hair",
+      ref_id: style.id,
+      title: style.name,
+      image_path: style.preview_path,
+    });
+    setSavedIds((s) => new Set(s).add(style.id));
+  }
+
+  // Re-run the analysis on the latest scan, keeping the saved questionnaire.
+  async function regenerate() {
+    if (!storedQuestionnaire) return;
+    setRegenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/facial-hair/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionnaire: storedQuestionnaire }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError("Couldn't regenerate — try again.");
+        return;
+      }
+      setPreviews({});
+      inFlight.current.clear();
+      setSavedIds(new Set());
+      setStyles(json.styles);
+      setRead({
+        face_shape: json.read.face_shape,
+        growth: json.read.growth,
+        length: lengthLabel(storedQuestionnaire),
+      });
+      setSelectedId(json.styles[0]?.id ?? null);
+      if (latestScan) setResultsScanId(latestScan.id);
+      setNewerDismissed(false);
+    } catch {
+      setError("Couldn't regenerate — try again.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  function dismissNewer() {
+    // Hide for the current view only — it reappears on reload or when the user
+    // leaves and returns, since the component remounts with newerDismissed=false.
+    setNewerDismissed(true);
+  }
+
+  // Copy the grooming brief — the on-you image + the brief text in one clipboard
+  // item. Apps that accept images (chats, notes) paste the photo; plain-text
+  // fields paste the brief. Falls back to text-only where image copy isn't
+  // supported.
+  async function copyBrief(style: Style) {
+    const url = previews[style.id];
+    const text = [
+      "mogr — beard brief",
+      `Style: ${style.name}`,
+      "",
+      style.full_brief || style.brief || "",
+      "",
+      `Face shape: ${read.face_shape ?? "—"} · Growth: ${read.growth ?? "—"}`,
+    ].join("\n");
+    try {
+      if (url && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([text], { type: "text/plain" }),
+            "image/png": (async () => (await fetch(url)).blob())(),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setError("Couldn't copy — try again.");
+      }
+    }
+  }
+
+  const allAnswered = FACIAL_HAIR_QUESTIONS.every((q) => answers[q.id]);
+  const selected = styles.find((s) => s.id === selectedId) ?? null;
+  const showNewer =
+    mode === "results" &&
+    !!latestScan &&
+    !!resultsScanId &&
+    latestScan.id !== resultsScanId &&
+    !newerDismissed;
+
+  // ============================ states ============================
+  if (mode === "loading") {
+    return <p className="font-mono text-[13px] text-stone">Loading…</p>;
+  }
+
+  if (mode === "need-scan") {
+    return (
+      <div className="max-w-[520px]">
+        <p className="eyebrow mb-4">facial hair</p>
+        <h1 className="font-display text-[clamp(32px,5vw,48px)] font-bold leading-[0.95] tracking-[-0.04em] mb-4">
+          {FACIAL_HAIR_COPY.needScanTitle}
+        </h1>
+        <p className="text-graphite text-[clamp(16px,2vw,18px)] leading-relaxed max-w-[42ch] mb-8">
+          {FACIAL_HAIR_COPY.needScanBody}
+        </p>
+        <Button href="/scan" size="lg">
+          {FACIAL_HAIR_COPY.needScanCta}
+        </Button>
+      </div>
+    );
+  }
+
+  if (mode === "questionnaire") {
+    return (
+      <div className="max-w-[640px]">
+        <p className="eyebrow mb-4">{FACIAL_HAIR_COPY.introEyebrow}</p>
+        <h1 className="font-display text-[clamp(32px,5vw,48px)] font-bold leading-[0.95] tracking-[-0.04em] mb-3">
+          {FACIAL_HAIR_COPY.introTitle}
+        </h1>
+        <p className="text-graphite text-[clamp(15px,1.8vw,17px)] leading-relaxed max-w-[44ch] mb-8">
+          {FACIAL_HAIR_COPY.introBody}
+        </p>
+
+        <div className="grid gap-6">
+          {FACIAL_HAIR_QUESTIONS.map((q) => (
+            <div key={q.id}>
+              <p className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone mb-3">
+                {q.label}
+              </p>
+              <div className="flex flex-wrap gap-2.5">
+                {q.options.map((o) => {
+                  const active = answers[q.id] === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: o.value }))}
+                      className={`rounded-full border px-4 py-2 text-[14px] transition-colors ${
+                        active
+                          ? "border-ink bg-ink text-bone"
+                          : "border-[var(--ink-12)] text-graphite hover:border-bronze hover:text-ink"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {error && <p className="mt-6 text-[14px] text-bronze">{error}</p>}
+
+        <div className="mt-8">
+          <Button onClick={submit} size="lg" disabled={!allAnswered || analyzing}>
+            {analyzing ? FACIAL_HAIR_COPY.analyzing : FACIAL_HAIR_COPY.analyze}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================ results ============================
   return (
-    <div className="max-w-[520px]">
-      <p className="eyebrow mb-4">facial hair</p>
-      <h1 className="font-display text-[clamp(32px,5vw,48px)] font-bold leading-[0.95] tracking-[-0.04em] mb-4">
-        Coming soon<span className="dot">.</span>
-      </h1>
-      <p className="text-graphite text-[clamp(16px,2vw,18px)] leading-relaxed max-w-[42ch] mb-8">
-        Beard and stubble styles matched to your growth and jawline — previewed
-        on your own face — are being built.
-      </p>
-      <Link
-        href="/dashboard"
-        className="font-mono text-[13px] uppercase tracking-[0.12em] text-bronze transition-colors hover:text-ink"
-      >
-        ← back to dashboard
-      </Link>
-    </div>
+    <>
+      <header className="mb-[clamp(20px,3vh,32px)]">
+        <Link
+          href="/dashboard"
+          className="group mb-5 inline-flex items-center gap-2.5 rounded-full border border-[var(--ink-12)] bg-cloud py-2 pl-2 pr-4 font-mono text-[12px] uppercase tracking-[0.12em] text-graphite transition-colors hover:border-bronze hover:text-ink"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-bone transition-transform group-hover:-translate-x-0.5">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </span>
+          Dashboard
+        </Link>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <p className="eyebrow mb-3">{FACIAL_HAIR_COPY.resultsEyebrow}</p>
+            <h1 className="font-display text-[clamp(30px,4.5vw,46px)] font-bold leading-[0.95] tracking-[-0.04em]">
+              {FACIAL_HAIR_COPY.resultsTitle}
+            </h1>
+          </div>
+          <div className="hidden sm:flex gap-8 pt-2 text-right">
+            {read.face_shape && (
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
+                  Face shape
+                </p>
+                <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
+                  {read.face_shape}
+                </p>
+              </div>
+            )}
+            {read.length && (
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-1.5">
+                  Length
+                </p>
+                <p className="font-display text-[18px] tracking-[-0.02em] text-ink">
+                  {read.length}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {showNewer && (
+        <div className="mb-6 flex items-center gap-4 rounded-[14px] border border-[rgba(176,122,60,0.4)] bg-[rgba(176,122,60,0.09)] px-5 py-4">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-bronze animate-pulse" />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[15px] font-bold tracking-[-0.01em] text-ink">
+              New scan detected
+            </p>
+            <p className="font-body text-[13px] leading-snug text-graphite">
+              Regenerate your beard styles on your most recent photo.
+            </p>
+          </div>
+          <Button onClick={regenerate} size="sm" disabled={regenerating}>
+            {regenerating ? "Regenerating…" : "Regenerate"}
+          </Button>
+          <button
+            type="button"
+            onClick={dismissNewer}
+            aria-label="Dismiss"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone transition-colors hover:bg-[var(--ink-08)] hover:text-ink"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <div className="grid gap-[clamp(16px,2.5vw,32px)] lg:grid-cols-2">
+        {/* Preview */}
+        <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] bg-[#2C2B27]">
+          {selected && previews[selected.id] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previews[selected.id]}
+              alt={`${selected.name} previewed on you`}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center">
+              {previewLoading ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-bronze" />
+                  <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]/70">
+                    {FACIAL_HAIR_COPY.generating}
+                  </p>
+                </div>
+              ) : (
+                <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]/40">
+                  select a style
+                </p>
+              )}
+            </div>
+          )}
+          {selected && previews[selected.id] && (
+            <span className="absolute bottom-4 left-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#F4F2EC]/85 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
+              {FACIAL_HAIR_COPY.previewedOnYou}
+            </span>
+          )}
+        </div>
+
+        {/* Detail */}
+        {selected && (
+          <div className="flex flex-col">
+            <h2 className="font-display text-[clamp(24px,3vw,34px)] font-bold tracking-[-0.03em] text-ink mb-3">
+              {selected.name}
+            </h2>
+            <p className="text-graphite text-[clamp(15px,1.7vw,18px)] leading-relaxed mb-4">
+              {selected.rationale}
+            </p>
+
+            {read.growth && (
+              <p className="mb-6 text-[14px] leading-relaxed text-graphite">
+                <span className="mr-2 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
+                  your growth
+                </span>
+                {read.growth}
+              </p>
+            )}
+
+            <div className="rounded-[16px] border border-[var(--ink-08)] bg-cloud p-5">
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone mb-2.5">
+                {showFull ? FACIAL_HAIR_COPY.fullBrief.toLowerCase() : FACIAL_HAIR_COPY.quickBrief}
+              </p>
+              <p className="text-ink text-[15px] leading-relaxed">
+                {showFull ? selected.full_brief : selected.brief}
+              </p>
+            </div>
+
+            <div className="mt-auto grid gap-3 pt-8">
+              <Button
+                onClick={() => save(selected)}
+                disabled={savedIds.has(selected.id)}
+                className="w-full justify-center"
+                size="lg"
+              >
+                {savedIds.has(selected.id) ? FACIAL_HAIR_COPY.saved : FACIAL_HAIR_COPY.save}
+              </Button>
+              <button
+                type="button"
+                onClick={() => copyBrief(selected)}
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                {copied ? "Copied — paste anywhere" : "Copy look + brief"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFull((v) => !v)}
+                className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[var(--ink-12)] py-3.5 font-display text-[15px] font-medium text-ink transition-colors hover:border-bronze cursor-pointer"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 shrink-0 transition-transform duration-300"
+                  aria-hidden="true"
+                >
+                  {showFull ? (
+                    <>
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="7" y1="8" x2="17" y2="8" />
+                      <line x1="7" y1="12" x2="17" y2="12" />
+                      <line x1="7" y1="16" x2="13" y2="16" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <line x1="10" y1="9" x2="8" y2="9" />
+                    </>
+                  )}
+                </svg>
+                {showFull ? "Show quick brief" : FACIAL_HAIR_COPY.fullBrief}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="mt-5 text-[14px] text-bronze">{error}</p>}
+
+      {/* Other styles */}
+      <p className="eyebrow mt-[clamp(28px,4vh,44px)] mb-5">{FACIAL_HAIR_COPY.otherStyles}</p>
+      <div className="grid grid-cols-2 gap-[clamp(12px,1.4vw,18px)] lg:grid-cols-4">
+        {styles.map((s) => {
+          const active = s.id === selectedId;
+          const hasImg = !!previews[s.id];
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setSelectedId(s.id)}
+              className={`flex flex-col overflow-hidden rounded-[16px] border text-left transition-colors ${
+                active ? "border-bronze" : "border-[var(--ink-08)] hover:border-[rgba(176,122,60,0.5)]"
+              }`}
+            >
+              {hasImg ? (
+                <>
+                  <div className="relative aspect-square bg-[#2C2B27]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previews[s.id]}
+                      alt={s.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  </div>
+                  <p
+                    className={`px-3.5 py-3 font-display text-[15px] tracking-[-0.01em] ${
+                      active ? "font-bold text-ink" : "font-medium text-graphite"
+                    }`}
+                  >
+                    {s.name}
+                  </p>
+                </>
+              ) : (
+                <div className="flex min-h-[190px] flex-1 flex-col gap-2 bg-[#2C2B27] p-[18px] text-left">
+                  <p className="font-display text-[16px] font-bold leading-tight tracking-[-0.02em] text-[#F4F2EC]">
+                    {s.name}
+                  </p>
+                  <p className="font-body text-[12.5px] leading-relaxed text-[#F4F2EC]/55 line-clamp-6">
+                    {s.rationale}
+                  </p>
+                  {active && previewLoading && (
+                    <span className="mt-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-bronze">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bronze" />
+                      rendering on you
+                    </span>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <BeardcareSection />
+    </>
   );
 }
