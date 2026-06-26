@@ -34,6 +34,9 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
   const lastLm = useRef<Landmark[] | null>(null);
   const rafRef = useRef<number | null>(null);
   const workCanvas = useRef<HTMLCanvasElement | null>(null);
+  // Rolling window of recent per-frame verdicts (null = ok) for temporal
+  // hysteresis — the gate decides over the window, not on a single jittery frame.
+  const history = useRef<(GateReason | null)[]>([]);
 
   const [ready, setReady] = useState(false);
   const [gateOn, setGateOn] = useState(true); // false if MediaPipe can't load
@@ -59,6 +62,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
       return;
     }
     let cancelled = false;
+    history.current = []; // fresh hysteresis window per camera session
 
     (async () => {
       // Camera
@@ -111,30 +115,48 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
       try {
         const res = fl.detectForVideo(video, performance.now());
         const faces = res.faceLandmarks ?? [];
+
+        // Compute this frame's verdict (null = passes everything).
+        let result: GateReason | null;
         if (faces.length === 0) {
           lastLm.current = null;
-          setReason("no-face");
-          setPassing(false);
+          result = "no-face";
         } else if (faces.length > 1) {
-          setReason("multi-face");
-          setPassing(false);
+          result = "multi-face";
         } else {
           const lm = faces[0];
           lastLm.current = lm;
           const pose = assessPose(lm);
           if (!pose.ok) {
-            setReason(pose.reason ?? "pose");
-            setPassing(false);
+            result = pose.reason ?? "pose";
           } else {
             const q = sampleQuality(video, lm);
-            if (q && !q.ok) {
-              setReason(q.reason ?? "dark");
-              setPassing(false);
-            } else {
-              setReason(null);
-              setPassing(true);
-            }
+            result = q && !q.ok ? (q.reason ?? "dark") : null;
           }
+        }
+
+        // Temporal hysteresis: decide over the last WINDOW frames so a single
+        // jittery/soft frame can't flip the status or block the shutter.
+        const WINDOW = 6;
+        const PASS_MIN = 4; // need a majority of recent frames to be clean
+        const h = history.current;
+        h.push(result);
+        if (h.length > WINDOW) h.shift();
+        const oks = h.reduce((acc, r) => acc + (r === null ? 1 : 0), 0);
+
+        if (oks >= PASS_MIN) {
+          setReason(null);
+          setPassing(true);
+        } else {
+          // Show the most frequent failing reason in the window (stable copy),
+          // falling back to this frame's reason.
+          const counts = new Map<GateReason, number>();
+          for (const r of h) if (r) counts.set(r, (counts.get(r) ?? 0) + 1);
+          let top: GateReason | null = result;
+          let topN = 0;
+          for (const [k, nn] of counts) if (nn > topN) ((top = k), (topN = nn));
+          setReason(top ?? "no-face");
+          setPassing(false);
         }
       } catch {
         /* transient detect error — keep looping */

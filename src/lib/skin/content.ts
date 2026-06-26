@@ -79,9 +79,14 @@ export interface SkinConcern {
   visible: boolean;
   regions: string[];
 }
+/** Cosmetic complexion-depth scale (for tone-matching, never ethnicity/clinical). */
+export type SkinShade = "Fair" | "Light" | "Medium" | "Tan" | "Deep";
+export const SKIN_SHADES: SkinShade[] = ["Fair", "Light", "Medium", "Tan", "Deep"];
+
 export interface SkinRead {
   faceDetected: boolean;
   imageUsable: boolean;
+  skinShade: SkinShade;
   skinType: {
     value: SkinTypeValue;
     confidence: "low" | "medium" | "high";
@@ -141,12 +146,14 @@ CRITICAL RULES:
 - No scores: no numeric scores, ratings, percentages, or overall grade.
 - Questionnaire fusion: heavily weight the questionnaire answers when deciding skin type and severities, especially where the image is visually ambiguous (e.g. normal vs dry).
 - Safety backstop: although the image is pre-screened, STILL return faceDetected and imageUsable. Set both true in the normal case; set either to false ONLY if the image clearly shows no face or is genuinely unusable.
+- Skin shade: estimate the overall complexion depth (skinShade) from the mid-face, accounting for lighting and the image's white balance. This is a cosmetic shade for grooming/tone-matching only — NOT an ethnicity, race, or clinical judgement.
 
 OUTPUT FORMAT:
 Output STRICT JSON only — no markdown, no backticks, no commentary. Match this exact schema:
 {
   "faceDetected": true,
   "imageUsable": true,
+  "skinShade": "Medium",
   "skinType": { "value": "dry", "confidence": "high", "basis": "fused" },
   "concerns": [
     { "id": "oiliness", "label": "Oiliness & Shine", "severity": "mild", "visible": true, "regions": ["forehead", "nose"] }
@@ -158,6 +165,7 @@ Output STRICT JSON only — no markdown, no backticks, no commentary. Match this
 }
 
 CONSTRAINTS:
+- skinShade must be one of ["Fair","Light","Medium","Tan","Deep"].
 - skinType.value must be one of ["dry","oily","combination","normal"].
 - skinType.confidence must be one of ["low","medium","high"].
 - skinType.basis must be one of ["image","questionnaire","fused"].
@@ -261,7 +269,7 @@ export const SKIN_COPY = {
 export const GATE_REASONS = {
   "no-face": "No face detected. Center your face in the frame.",
   "multi-face": "More than one face. Make sure it's just you.",
-  pose: "Look straight at the camera, chin level.",
+  pose: "Face the camera straight on, head level.",
   dark: "Too dark. Find even, bright light.",
   bright: "Too bright or washed out. Reduce glare.",
   uneven: "Uneven light. Face a window, not a screen.",

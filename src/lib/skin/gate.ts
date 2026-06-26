@@ -67,11 +67,14 @@ export function assessPose(lm: Landmark[]): { ok: boolean; reason?: GateReason }
   const eyeDist = Math.hypot(re.x - le.x, re.y - le.y) || 1e-6;
   const noseDrop = (nose.y - eyeMidY) / eyeDist; // front-facing ≈ 0.55–0.95
 
+  // Lenient bands — only block a CLEARLY off-axis pose, never a natural one.
+  // The 2D noseDrop pitch estimate varies a lot with face shape and camera
+  // height, so its band is deliberately wide; yaw is the reliable signal.
   if (
-    Math.abs(yawOffset) > 0.14 ||
-    Math.abs(roll) > 13 ||
-    noseDrop < 0.42 || // chin up / looking up
-    noseDrop > 1.3 // looking down
+    Math.abs(yawOffset) > 0.22 || // turned left/right
+    Math.abs(roll) > 18 || // head tilted
+    noseDrop < 0.3 || // chin clearly up / looking up
+    noseDrop > 1.75 // clearly looking down
   ) {
     return { ok: false, reason: "pose" };
   }
@@ -131,8 +134,9 @@ export function assessQuality(data: ImageData): { ok: boolean; reason?: GateReas
   if (mean < 72) return { ok: false, reason: "dark" }; // dim / underlit
   if (mean > 210) return { ok: false, reason: "bright" }; // blown out
   if (darkFrac > 0.3) return { ok: false, reason: "dark" }; // deep shadows on the face
-  // Directional light: side-light (left/right) or screen/under-light (top/bottom)
-  if (lr > 46 || tb > 52) return { ok: false, reason: "uneven" };
+  // Directional light: side-light (left/right) or screen/under-light (top/bottom).
+  // Loosened — ordinary indoor window/lamp light is directional but fine.
+  if (lr > 56 || tb > 64) return { ok: false, reason: "uneven" };
 
   // Laplacian variance (4-neighbour) on the interior.
   let lapSum = 0;
@@ -151,7 +155,11 @@ export function assessQuality(data: ImageData): { ok: boolean; reason?: GateReas
   if (count) {
     const m = lapSum / count;
     const variance = lapSq / count - m * m;
-    if (variance < 16) return { ok: false, reason: "blurry" };
+    // Lenient: smooth (young / soft-lit / beauty-processed) skin has low
+    // high-frequency energy even when perfectly in focus, and the metric falls
+    // further at higher capture resolutions. Only a genuinely smeared frame
+    // sits below this; a sharp face reads in the tens-to-hundreds.
+    if (variance < 5) return { ok: false, reason: "blurry" };
   }
   return { ok: true };
 }

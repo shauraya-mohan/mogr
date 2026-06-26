@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DASHBOARD, type RoutineItem } from "@/lib/dashboard/data";
+import { DASHBOARD, type RoutineItem, type ReadField } from "@/lib/dashboard/data";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
 import EditPreferences from "@/components/dashboard/EditPreferences";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +16,8 @@ const CATEGORY_HREF: Partial<Record<string, string>> = {
 
 const CARD =
   "rounded-[20px] border border-[var(--ink-08)] bg-cloud p-[clamp(20px,2.6vw,32px)]";
+
+const READ_LABELS = ["Face shape", "Skin shade", "Hair", "Beard type"] as const;
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow mb-5">{children}</p>;
@@ -48,19 +50,45 @@ export default function DashboardPage() {
     setGreeting({ word, day });
   }, []);
 
-  // Real name from the user's profile (falls back to placeholder).
-  const [firstName, setFirstName] = useState(DASHBOARD.user.name);
+  // Real name + read. `null` = still loading (shows a skeleton, never the
+  // "Arjun" placeholder). The localStorage read lives in the effect (not the
+  // useState initializer) to avoid an SSR hydration mismatch.
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [read, setRead] = useState<ReadField[] | null>(null);
   useEffect(() => {
+    const cachedName = localStorage.getItem("mogr-first-name");
+    if (cachedName) setFirstName(cachedName); // instant correct name on repeat visits
+
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
-      if (data?.full_name) setFirstName(data.full_name.trim().split(/\s+/)[0]);
-    });
+
+      const [prof, hair, beard] = await Promise.all([
+        supabase.from("profiles").select("full_name, face_shape, skin_shade").eq("id", user.id).maybeSingle(),
+        supabase.from("hair_profiles").select("hair_type").eq("user_id", user.id).maybeSingle(),
+        supabase.from("facial_hair_profiles").select("growth, density").eq("user_id", user.id).maybeSingle(),
+      ]);
+
+      const fullName = prof.data?.full_name?.trim();
+      if (fullName) {
+        const fn = fullName.split(/\s+/)[0];
+        setFirstName(fn);
+        localStorage.setItem("mogr-first-name", fn);
+      } else if (!cachedName) {
+        setFirstName(""); // resolved, no name on file → stop the skeleton
+      }
+
+      const beardVal = beard.data?.growth ?? beard.data?.density ?? null;
+      setRead([
+        { label: "Face shape", value: prof.data?.face_shape ?? "—" },
+        { label: "Skin shade", value: prof.data?.skin_shade ?? "—" },
+        { label: "Hair", value: hair.data?.hair_type ?? "—" },
+        { label: "Beard type", value: beardVal ?? "—" },
+      ]);
+    })();
   }, []);
 
   // Routine completion is local-only for now (resets on reload). Wire to a table later.
@@ -77,7 +105,15 @@ export default function DashboardPage() {
             {greeting.day ? `${greeting.day} — let's lock in` : "let's lock in"}
           </p>
           <h1 className="font-display text-[clamp(34px,5vw,52px)] font-bold leading-[0.95] tracking-[-0.04em]">
-            {greeting.word}, {firstName}
+            {greeting.word}
+            {firstName === null ? (
+              <>
+                ,{" "}
+                <span className="inline-block h-[0.72em] w-[2.4em] translate-y-[0.04em] animate-pulse rounded-md bg-[var(--ink-08)] align-baseline" />
+              </>
+            ) : firstName ? (
+              <>, {firstName}</>
+            ) : null}
             <span className="dot">.</span>
           </h1>
         </div>
@@ -91,14 +127,18 @@ export default function DashboardPage() {
         <section className={CARD}>
           <Eyebrow>your read</Eyebrow>
           <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-4">
-            {DASHBOARD.read.map((f) => (
+            {(read ?? READ_LABELS.map((label) => ({ label, value: "" }))).map((f) => (
               <div key={f.label}>
                 <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
                   {f.label}
                 </p>
-                <p className="font-display text-[clamp(18px,2vw,24px)] tracking-[-0.02em] text-ink">
-                  {f.value}
-                </p>
+                {read === null ? (
+                  <span className="mt-1 block h-[1.3em] w-[3.4em] animate-pulse rounded-md bg-[var(--ink-08)]" />
+                ) : (
+                  <p className="font-display text-[clamp(18px,2vw,24px)] tracking-[-0.02em] text-ink">
+                    {f.value}
+                  </p>
+                )}
               </div>
             ))}
           </div>

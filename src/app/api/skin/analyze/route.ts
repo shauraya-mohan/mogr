@@ -56,6 +56,7 @@ function mergeReads(reads: SkinRead[]): SkinRead {
   return {
     faceDetected: reads.every((r) => r.faceDetected),
     imageUsable: reads.every((r) => r.imageUsable),
+    skinShade: mode(reads.map((r) => r.skinShade)) ?? base.skinShade ?? "Medium",
     skinType: {
       value: mode(reads.map((r) => r.skinType?.value)) ?? base.skinType?.value ?? "normal",
       confidence: base.skinType?.confidence ?? "medium",
@@ -161,6 +162,10 @@ export async function POST(req: Request) {
     questionnaire,
     data: { read, routine },
   });
+  // Skin shade is a shared, scan-derived attribute (like face_shape from the
+  // hair/facial-hair scans) — denormalise it onto profiles for cross-feature
+  // reads (dashboard now, wardrobe later).
+  await supabase.from("profiles").update({ skin_shade: read.skinShade }).eq("id", user.id);
 
   return NextResponse.json({ read, routine, cached: false });
 }
