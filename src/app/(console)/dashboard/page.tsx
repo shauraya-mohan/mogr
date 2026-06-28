@@ -7,7 +7,7 @@ import { CATEGORY_ICONS } from "@/components/dashboard/icons";
 import EditPreferences from "@/components/dashboard/EditPreferences";
 import { createClient } from "@/lib/supabase/client";
 import { useRoutine } from "@/lib/routine/useRoutine";
-import { isDoneToday, TIME_LABEL, type TimeOfDay } from "@/lib/routine/content";
+import { isDoneToday, type TimeOfDay, type RoutineStep } from "@/lib/routine/content";
 
 /** Built feature routes per category (others stay inert until built). */
 const CATEGORY_HREF: Partial<Record<string, string>> = {
@@ -28,7 +28,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function Check({ checked }: { checked: boolean }) {
   return (
     <span
-      className={`grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border transition-colors ${
+      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${
         checked ? "border-ink bg-ink text-bone" : "border-[var(--ink-12)] bg-transparent"
       }`}
     >
@@ -38,6 +38,150 @@ function Check({ checked }: { checked: boolean }) {
         </svg>
       )}
     </span>
+  );
+}
+
+/** Clean day/night segmented toggle — a bronze pill slides between sun & moon. */
+function DayNightToggle({ value, onChange }: { value: TimeOfDay; onChange: (t: TimeOfDay) => void }) {
+  const pm = value === "pm";
+  return (
+    <div
+      role="group"
+      aria-label="Switch between morning and evening routine"
+      className="relative inline-flex items-center rounded-full border border-[var(--ink-12)] bg-bone p-1"
+    >
+      <span
+        aria-hidden
+        className={`absolute top-1 left-1 h-7 w-7 rounded-full bg-bronze transition-transform duration-500 ease-[var(--ease)] motion-reduce:transition-none ${
+          pm ? "translate-x-7" : "translate-x-0"
+        }`}
+      />
+      <button
+        type="button"
+        onClick={() => onChange("am")}
+        aria-pressed={!pm}
+        aria-label="Morning routine"
+        className={`relative z-10 grid h-7 w-7 place-items-center rounded-full transition-colors duration-300 ease-[var(--ease)] ${
+          pm ? "text-stone hover:text-ink" : "text-bone"
+        }`}
+      >
+        <SunIcon />
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("pm")}
+        aria-pressed={pm}
+        aria-label="Evening routine"
+        className={`relative z-10 grid h-7 w-7 place-items-center rounded-full transition-colors duration-300 ease-[var(--ease)] ${
+          pm ? "text-bone" : "text-stone hover:text-ink"
+        }`}
+      >
+        <MoonIcon />
+      </button>
+    </div>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.2M12 19.8V22M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2 12h2.2M19.8 12H22M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+    </svg>
+  );
+}
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z" />
+    </svg>
+  );
+}
+
+/** Hair ⇄ facial-hair switch — like the theme toggle: a single round button
+ *  that swaps its icon on click. Opposite fills mark the two states (hair =
+ *  solid bronze, facial hair = bronze outline). */
+function FeatureToggle({
+  value,
+  onChange,
+}: {
+  value: "hair" | "facial_hair";
+  onChange: (f: "hair" | "facial_hair") => void;
+}) {
+  const fh = value === "facial_hair";
+  const Icon = CATEGORY_ICONS[fh ? "facial-hair" : "hair"];
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(fh ? "hair" : "facial_hair")}
+      aria-label={fh ? "Showing facial-hair routine — switch to hair" : "Showing hair routine — switch to facial hair"}
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors duration-300 ease-[var(--ease)] ${
+        fh
+          ? "border-bronze bg-transparent text-bronze hover:bg-bronze/10"
+          : "border-transparent bg-bronze text-bone hover:brightness-110"
+      }`}
+    >
+      <Icon className="h-[17px] w-[17px]" />
+    </button>
+  );
+}
+
+/** Grooming card — mirrors the skin card; a manual toggle swaps between the
+ *  pinned hair and facial-hair steps. */
+function GroomingCard({
+  hair,
+  facialHair,
+  onToggle,
+}: {
+  hair: RoutineStep[];
+  facialHair: RoutineStep[];
+  onToggle: (s: RoutineStep) => void;
+}) {
+  const [feat, setFeat] = useState<"hair" | "facial_hair">("hair");
+  const items = feat === "hair" ? hair : facialHair;
+  const label = feat === "hair" ? "hair" : "facial-hair";
+  const href = feat === "hair" ? "/hair" : "/facial-hair";
+
+  return (
+    <section className={CARD}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <p className="eyebrow">today&apos;s haircare</p>
+        <FeatureToggle value={feat} onChange={setFeat} />
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-[15px] leading-relaxed text-graphite">
+          No {label} steps pinned yet.{" "}
+          <Link href={href} className="text-bronze transition-colors hover:text-ink">
+            Build it →
+          </Link>
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--ink-08)]">
+          {items.map((s) => {
+            const done = isDoneToday(s);
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(s)}
+                  className="flex w-full items-center gap-3.5 py-3 text-left"
+                >
+                  <Check checked={done} />
+                  <span
+                    className={`min-w-0 flex-1 text-[clamp(15px,1.6vw,17px)] leading-snug transition-colors duration-300 ease-[var(--ease)] ${
+                      done ? "text-stone line-through" : "text-ink"
+                    }`}
+                  >
+                    {s.label}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -95,13 +239,20 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  // Today's routine = the steps pinned on the /routine page. Completion is
-  // daily-resetting (isDoneToday); toggling persists to routine_steps.
+  // Today's skin routine = the pinned skin steps. Completion is daily-resetting
+  // (isDoneToday); toggling persists to routine_steps. Morning/Evening is driven
+  // by a day/night toggle that auto-defaults to the current time of day.
   const { steps: routineSteps, toggleDone } = useRoutine();
-  const pinned = (routineSteps ?? []).filter((s) => s.pinned);
-  const hasAM = pinned.some((s) => s.time_of_day === "am");
-  const hasPM = pinned.some((s) => s.time_of_day === "pm");
-  const ROUTINE_GROUPS: TimeOfDay[] = ["am", "pm"];
+  const allPinned = (routineSteps ?? []).filter((s) => s.pinned);
+  const skinPinned = allPinned.filter((s) => s.source === "skin");
+  const hairPinned = allPinned.filter((s) => s.source === "hair");
+  const facialHairPinned = allPinned.filter((s) => s.source === "facial_hair");
+
+  const [tod, setTod] = useState<TimeOfDay>("am");
+  useEffect(() => {
+    setTod(new Date().getHours() < 17 ? "am" : "pm");
+  }, []);
+  const todItems = skinPinned.filter((s) => s.time_of_day === tod);
 
   return (
     <>
@@ -154,14 +305,9 @@ export default function DashboardPage() {
         {/* Routine + streak */}
         <div className="grid gap-[clamp(16px,2vw,22px)] lg:grid-cols-[1.5fr_1fr]">
           <section className={CARD}>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <Eyebrow>today&apos;s routine</Eyebrow>
-              <Link
-                href="/routine"
-                className="font-mono text-[11px] uppercase tracking-[0.12em] text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze"
-              >
-                manage
-              </Link>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <p className="eyebrow">today&apos;s skin routine</p>
+              <DayNightToggle value={tod} onChange={setTod} />
             </div>
 
             {routineSteps === null ? (
@@ -170,65 +316,45 @@ export default function DashboardPage() {
                   <li key={i} className="h-5 w-2/3 animate-pulse rounded bg-[var(--ink-08)]" />
                 ))}
               </ul>
-            ) : pinned.length === 0 ? (
+            ) : skinPinned.length === 0 ? (
               <p className="text-[15px] leading-relaxed text-graphite">
-                No steps pinned yet.{" "}
-                <Link href="/routine" className="text-bronze transition-colors hover:text-ink">
-                  Build your routine →
+                No skin steps pinned yet.{" "}
+                <Link href="/skin" className="text-bronze transition-colors hover:text-ink">
+                  Build your skin routine →
                 </Link>
               </p>
+            ) : todItems.length === 0 ? (
+              <p className="text-[15px] leading-relaxed text-graphite">
+                Nothing in your {tod === "am" ? "morning" : "evening"} routine yet.
+              </p>
             ) : (
-              <div className="space-y-4">
-                {ROUTINE_GROUPS.map((g) => {
-                  const items = pinned.filter((s) => s.time_of_day === g);
-                  if (!items.length) return null;
+              <ul className="divide-y divide-[var(--ink-08)]">
+                {todItems.map((s) => {
+                  const done = isDoneToday(s);
                   return (
-                    <div key={g}>
-                      {hasAM && hasPM && (
-                        <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-stone">
-                          {TIME_LABEL[g]}
-                        </p>
-                      )}
-                      <ul className="divide-y divide-[var(--ink-08)]">
-                        {items.map((s) => {
-                          const done = isDoneToday(s);
-                          return (
-                            <li key={s.id}>
-                              <button
-                                type="button"
-                                onClick={() => toggleDone(s)}
-                                className="flex w-full items-center gap-3.5 py-3 text-left"
-                              >
-                                <Check checked={done} />
-                                <span
-                                  className={`min-w-0 flex-1 text-[clamp(15px,1.6vw,17px)] leading-snug transition-colors duration-300 ease-[var(--ease)] ${
-                                    done ? "text-stone line-through" : "text-ink"
-                                  }`}
-                                >
-                                  {s.label}
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleDone(s)}
+                        className="flex w-full items-center gap-3.5 py-3 text-left"
+                      >
+                        <Check checked={done} />
+                        <span
+                          className={`min-w-0 flex-1 text-[clamp(15px,1.6vw,17px)] leading-snug transition-colors duration-300 ease-[var(--ease)] ${
+                            done ? "text-stone line-through" : "text-ink"
+                          }`}
+                        >
+                          {s.label}
+                        </span>
+                      </button>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </section>
 
-          <section className={`${CARD} flex flex-col justify-center`}>
-            <Eyebrow>streak</Eyebrow>
-            <p className="leading-none">
-              <span className="font-display text-[clamp(46px,6vw,68px)] font-bold tracking-[-0.04em] text-ink">
-                {DASHBOARD.streak.days}
-              </span>
-              <span className="ml-2.5 text-[16px] text-graphite">days locked in</span>
-            </p>
-            <p className="mt-3 text-[15px] text-graphite">{DASHBOARD.streak.note}</p>
-          </section>
+          <GroomingCard hair={hairPinned} facialHair={facialHairPinned} onToggle={toggleDone} />
         </div>
 
         {/* Category quick cards */}
@@ -263,11 +389,15 @@ export default function DashboardPage() {
 
         {/* Coaching + fit combo */}
         <div className="grid gap-[clamp(16px,2vw,22px)] lg:grid-cols-2">
-          <section className={CARD}>
-            <Eyebrow>coaching — next up</Eyebrow>
-            <p className="text-[clamp(16px,1.6vw,18px)] leading-relaxed text-ink">
-              {DASHBOARD.coaching}
+          <section className={`${CARD} flex flex-col justify-center`}>
+            <Eyebrow>streak</Eyebrow>
+            <p className="leading-none">
+              <span className="font-display text-[clamp(46px,6vw,68px)] font-bold tracking-[-0.04em] text-ink">
+                {DASHBOARD.streak.days}
+              </span>
+              <span className="ml-2.5 text-[16px] text-graphite">days locked in</span>
             </p>
+            <p className="mt-3 text-[15px] text-graphite">{DASHBOARD.streak.note}</p>
           </section>
 
           <section className={CARD}>
