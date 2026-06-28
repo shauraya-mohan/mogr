@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DASHBOARD, type RoutineItem, type ReadField } from "@/lib/dashboard/data";
+import { DASHBOARD, type ReadField } from "@/lib/dashboard/data";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
 import EditPreferences from "@/components/dashboard/EditPreferences";
 import { createClient } from "@/lib/supabase/client";
+import { useRoutine } from "@/lib/routine/useRoutine";
+import { isDoneToday, TIME_LABEL, type TimeOfDay } from "@/lib/routine/content";
 
 /** Built feature routes per category (others stay inert until built). */
 const CATEGORY_HREF: Partial<Record<string, string>> = {
@@ -81,7 +83,9 @@ export default function DashboardPage() {
         setFirstName(""); // resolved, no name on file → stop the skeleton
       }
 
-      const beardVal = beard.data?.growth ?? beard.data?.density ?? null;
+      // One clean word for the chip — density is the tidy enum (Sparse/Medium/
+      // Dense); fall back to the first word of the growth phrase if it's missing.
+      const beardVal = beard.data?.density ?? beard.data?.growth?.split(/[\s,]+/)[0] ?? null;
       setRead([
         { label: "Face shape", value: prof.data?.face_shape ?? "—" },
         { label: "Skin shade", value: prof.data?.skin_shade ?? "—" },
@@ -91,10 +95,13 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  // Routine completion is local-only for now (resets on reload). Wire to a table later.
-  const [routine, setRoutine] = useState<RoutineItem[]>(DASHBOARD.routine.map((r) => ({ ...r })));
-  const toggle = (id: string) =>
-    setRoutine((prev) => prev.map((r) => (r.id === id ? { ...r, done: !r.done } : r)));
+  // Today's routine = the steps pinned on the /routine page. Completion is
+  // daily-resetting (isDoneToday); toggling persists to routine_steps.
+  const { steps: routineSteps, toggleDone } = useRoutine();
+  const pinned = (routineSteps ?? []).filter((s) => s.pinned);
+  const hasAM = pinned.some((s) => s.time_of_day === "am");
+  const hasPM = pinned.some((s) => s.time_of_day === "pm");
+  const ROUTINE_GROUPS: TimeOfDay[] = ["am", "pm"];
 
   return (
     <>
@@ -147,27 +154,69 @@ export default function DashboardPage() {
         {/* Routine + streak */}
         <div className="grid gap-[clamp(16px,2vw,22px)] lg:grid-cols-[1.5fr_1fr]">
           <section className={CARD}>
-            <Eyebrow>today&apos;s routine</Eyebrow>
-            <ul className="divide-y divide-[var(--ink-08)]">
-              {routine.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(item.id)}
-                    className="flex w-full items-center gap-3.5 py-3.5 text-left"
-                  >
-                    <Check checked={item.done} />
-                    <span
-                      className={`text-[clamp(15px,1.6vw,17px)] transition-colors ${
-                        item.done ? "text-stone line-through" : "text-ink"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <Eyebrow>today&apos;s routine</Eyebrow>
+              <Link
+                href="/routine"
+                className="font-mono text-[11px] uppercase tracking-[0.12em] text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze"
+              >
+                manage
+              </Link>
+            </div>
+
+            {routineSteps === null ? (
+              <ul className="space-y-3.5">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="h-5 w-2/3 animate-pulse rounded bg-[var(--ink-08)]" />
+                ))}
+              </ul>
+            ) : pinned.length === 0 ? (
+              <p className="text-[15px] leading-relaxed text-graphite">
+                No steps pinned yet.{" "}
+                <Link href="/routine" className="text-bronze transition-colors hover:text-ink">
+                  Build your routine →
+                </Link>
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {ROUTINE_GROUPS.map((g) => {
+                  const items = pinned.filter((s) => s.time_of_day === g);
+                  if (!items.length) return null;
+                  return (
+                    <div key={g}>
+                      {hasAM && hasPM && (
+                        <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-stone">
+                          {TIME_LABEL[g]}
+                        </p>
+                      )}
+                      <ul className="divide-y divide-[var(--ink-08)]">
+                        {items.map((s) => {
+                          const done = isDoneToday(s);
+                          return (
+                            <li key={s.id}>
+                              <button
+                                type="button"
+                                onClick={() => toggleDone(s)}
+                                className="flex w-full items-center gap-3.5 py-3 text-left"
+                              >
+                                <Check checked={done} />
+                                <span
+                                  className={`min-w-0 flex-1 text-[clamp(15px,1.6vw,17px)] leading-snug transition-colors duration-300 ease-[var(--ease)] ${
+                                    done ? "text-stone line-through" : "text-ink"
+                                  }`}
+                                >
+                                  {s.label}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <section className={`${CARD} flex flex-col justify-center`}>

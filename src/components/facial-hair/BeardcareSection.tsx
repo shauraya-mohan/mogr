@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { canonical } from "@/lib/cacheKey";
+import { useRoutine } from "@/lib/routine/useRoutine";
+import { findStep, shortenLabel, shortenDetail } from "@/lib/routine/content";
 import {
   BEARDCARE_SKIN,
   BEARDCARE_FIELDS,
@@ -40,6 +43,24 @@ export default function BeardcareSection() {
   // Canonical key of the answers that produced the currently-shown routine.
   // Re-submitting an identical form short-circuits (no API call, no regen).
   const [builtKey, setBuiltKey] = useState<string | null>(null);
+  const routineCtl = useRoutine();
+  const [added, setAdded] = useState(false);
+
+  // One tap sends the whole beard-care routine to the routine page (Morning),
+  // deduped against what's already there.
+  function addAllToRoutine() {
+    if (!tips) return;
+    const items = tips.routine
+      .map((r) => ({
+        source: "facial_hair" as const,
+        label: shortenLabel(r.step),
+        timeOfDay: "am" as const,
+        note: r.cadence || shortenDetail(r.detail),
+      }))
+      .filter((it) => !findStep(routineCtl.steps, it.source, it.label, it.timeOfDay));
+    if (items.length) routineCtl.addMany(items);
+    setAdded(true);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -284,6 +305,33 @@ export default function BeardcareSection() {
                   </ul>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-[var(--ink-08)] pt-6">
+              {added ? (
+                <div className="inline-flex items-center gap-4">
+                  <span className="inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.14em] text-stone">
+                    <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-bronze text-bone">
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    </span>
+                    added to routine
+                  </span>
+                  <Link
+                    href="/routine"
+                    className="group inline-flex items-center gap-1.5 font-mono text-[12px] uppercase tracking-[0.14em] text-bronze transition-colors duration-300 ease-[var(--ease)] hover:text-ink"
+                  >
+                    view routine
+                    <span aria-hidden className="transition-transform duration-300 ease-[var(--ease)] group-hover:translate-x-1">→</span>
+                  </Link>
+                </div>
+              ) : (
+                <button type="button" className="btn" onClick={addAllToRoutine}>
+                  <span className="btn-dot" />
+                  Add to routine
+                </button>
+              )}
             </div>
           </div>
         )}

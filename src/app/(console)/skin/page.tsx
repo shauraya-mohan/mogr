@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/Button";
 import SkinCapture from "@/components/skin/SkinCapture";
+import { useRoutine } from "@/lib/routine/useRoutine";
+import { findStep, shortenLabel, shortenDetail } from "@/lib/routine/content";
 import { uploadSkinScan } from "@/lib/skin/upload";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -51,6 +53,7 @@ export default function SkinPage() {
   const [added, setAdded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const routineCtl = useRoutine();
 
   // Sign the skin scan image + read its date (for the results view).
   async function loadScanMeta(sid: string) {
@@ -160,6 +163,19 @@ export default function SkinPage() {
       setError("Analysis failed — try again.");
       setMode("questionnaire");
     }
+  }
+
+  // Add the whole read routine (every AM + PM step) to the routine page in one
+  // tap; the per-step pinning/editing then happens there. Dedupes against what's
+  // already added so re-tapping is a no-op.
+  function addAllToRoutine() {
+    if (!routine) return;
+    const items = [
+      ...routine.am.map((s) => ({ source: "skin" as const, label: shortenLabel(s.step), timeOfDay: "am" as const, note: shortenDetail(s.detail) })),
+      ...routine.pm.map((s) => ({ source: "skin" as const, label: shortenLabel(s.step), timeOfDay: "pm" as const, note: shortenDetail(s.detail) })),
+    ].filter((it) => !findStep(routineCtl.steps, it.source, it.label, it.timeOfDay));
+    if (items.length) routineCtl.addMany(items);
+    setAdded(true);
   }
 
   function rescan() {
@@ -448,9 +464,29 @@ export default function SkinPage() {
 
       {/* Actions */}
       <div className="mt-[clamp(28px,4vh,44px)] flex flex-wrap items-center gap-4">
-        <Button onClick={() => setAdded(true)} size="lg" disabled={added}>
-          {added ? "Added to your day" : "Add routine to my day"}
-        </Button>
+        {added ? (
+          <div className="inline-flex items-center gap-4">
+            <span className="inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.14em] text-stone">
+              <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-bronze text-bone">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              </span>
+              added to routine
+            </span>
+            <Link
+              href="/routine"
+              className="group inline-flex items-center gap-1.5 font-mono text-[12px] uppercase tracking-[0.14em] text-bronze transition-colors duration-300 ease-[var(--ease)] hover:text-ink"
+            >
+              view routine
+              <span aria-hidden className="transition-transform duration-300 ease-[var(--ease)] group-hover:translate-x-1">→</span>
+            </Link>
+          </div>
+        ) : (
+          <Button onClick={addAllToRoutine} size="lg">
+            Add to routine
+          </Button>
+        )}
         <button
           type="button"
           onClick={rescan}
