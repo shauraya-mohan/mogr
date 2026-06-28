@@ -25,12 +25,12 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow mb-5">{children}</p>;
 }
 
-function Check({ checked }: { checked: boolean }) {
+function Check({ checked, circle = false }: { checked: boolean; circle?: boolean }) {
   return (
     <span
-      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${
-        checked ? "border-ink bg-ink text-bone" : "border-[var(--ink-12)] bg-transparent"
-      }`}
+      className={`grid h-5 w-5 shrink-0 place-items-center border transition-colors ${
+        circle ? "rounded-full" : "rounded-[6px]"
+      } ${checked ? "border-ink bg-ink text-bone" : "border-[var(--ink-12)] bg-transparent"}`}
     >
       {checked && (
         <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -167,7 +167,7 @@ function GroomingCard({
                   onClick={() => onToggle(s)}
                   className="flex w-full items-center gap-3.5 py-3 text-left"
                 >
-                  <Check checked={done} />
+                  <Check checked={done} circle />
                   <span
                     className={`min-w-0 flex-1 text-[clamp(15px,1.6vw,17px)] leading-snug transition-colors duration-300 ease-[var(--ease)] ${
                       done ? "text-stone line-through" : "text-ink"
