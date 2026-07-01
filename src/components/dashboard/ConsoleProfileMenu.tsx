@@ -32,9 +32,12 @@ function LogoutIcon() {
 export default function ConsoleProfileMenu({
   initials,
   variant = "sidebar",
+  collapsed = false,
 }: {
   initials: string;
   variant?: "sidebar" | "topbar";
+  /** Sidebar-only: render the avatar without the "profile" label. */
+  collapsed?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -63,11 +66,13 @@ export default function ConsoleProfileMenu({
   }
 
   return (
-    <div ref={ref} className={`relative ${sidebar ? "m-4" : ""}`}>
+    <div ref={ref} className={`relative ${sidebar && !collapsed ? "flex-1" : ""}`}>
       {open && (
         <div
           className={`absolute z-50 min-w-[170px] rounded-[12px] border border-white/[0.08] bg-[#232320] p-1.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.65)] ${
-            sidebar ? "bottom-full left-0 mb-2 w-full" : "right-0 top-full mt-2"
+            sidebar
+              ? `bottom-full mb-2 ${collapsed ? "left-0" : "left-0 w-full"}`
+              : "right-0 top-full mt-2"
           }`}
           role="menu"
         >
@@ -89,12 +94,18 @@ export default function ConsoleProfileMenu({
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-haspopup="menu"
-          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]"
+          aria-label={collapsed ? "Profile menu" : undefined}
+          title={collapsed ? "Profile" : undefined}
+          className={`flex items-center rounded-[10px] text-left transition-colors hover:bg-white/[0.05] ${
+            collapsed ? "justify-center p-1.5" : "w-full gap-3 px-3 py-3"
+          }`}
         >
           <span className="grid h-9 w-9 place-items-center rounded-full bg-bronze font-mono text-[12px] font-bold text-[#1A1A16]">
             {initials}
           </span>
-          <span className="font-mono text-[14px] text-[#8E897D]">profile</span>
+          {!collapsed && (
+            <span className="font-mono text-[14px] text-[#8E897D]">profile</span>
+          )}
         </button>
       ) : (
         <button

@@ -14,6 +14,7 @@ const CATEGORY_HREF: Partial<Record<string, string>> = {
   skin: "/skin",
   hair: "/hair",
   "facial-hair": "/facial-hair",
+  wardrobe: "/wardrobe",
 };
 
 const CARD =
