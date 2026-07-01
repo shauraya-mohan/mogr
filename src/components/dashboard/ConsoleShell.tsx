@@ -8,22 +8,24 @@ import SidebarThemeToggle from "@/components/dashboard/SidebarThemeToggle";
 
 const STORAGE_KEY = "mogr-nav-collapsed";
 
-function ChevronsIcon({ collapsed }: { collapsed: boolean }) {
+/** The sidebar-panel glyph — reads as "toggle sidebar". The inner column
+ *  fills when collapsed, so the icon itself reflects the current state. */
+function PanelIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="19"
+      height="19"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={collapsed ? "rotate-180" : ""}
     >
-      <path d="M11 7l-5 5 5 5" />
-      <path d="M18 7l-5 5 5 5" />
+      <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+      <line x1="9.5" y1="4.5" x2="9.5" y2="19.5" />
+      {collapsed && <rect x="3" y="4.5" width="6.5" height="15" rx="2.5" fill="currentColor" stroke="none" />}
     </svg>
   );
 }
@@ -85,27 +87,29 @@ export default function ConsoleShell({
       >
         {/* Brand + collapse control */}
         <div
-          className={`flex items-center pb-6 pt-7 ${
-            collapsed ? "flex-col gap-4 px-0" : "justify-between px-7"
+          className={`flex pb-6 pt-7 ${
+            collapsed ? "flex-col items-center gap-4" : "items-center justify-between px-7"
           }`}
         >
-          {!collapsed && (
-            <Link
-              href="/"
-              className="font-display text-[26px] font-bold tracking-[-0.03em] text-[#F4F2EC]"
-            >
-              mogr<span className="text-bronze">.</span>
-            </Link>
-          )}
+          <Link
+            href="/"
+            aria-label="mogr — home"
+            className={`font-display font-bold tracking-[-0.03em] text-[#F4F2EC] ${
+              collapsed ? "text-[24px]" : "text-[26px]"
+            }`}
+          >
+            {collapsed ? "m" : "mogr"}
+            <span className="text-[#C68A47]">.</span>
+          </Link>
           <button
             type="button"
             onClick={toggle}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-pressed={collapsed}
             title={collapsed ? "Expand" : "Collapse"}
-            className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] border border-white/[0.12] text-[#8E897D] transition-colors hover:border-[#C68A47] hover:text-[#C68A47]"
+            className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[9px] text-[#8E897D] transition-colors hover:bg-white/[0.06] hover:text-[#C68A47]"
           >
-            <ChevronsIcon collapsed={collapsed} />
+            <PanelIcon collapsed={collapsed} />
           </button>
         </div>
 
@@ -113,8 +117,8 @@ export default function ConsoleShell({
 
         {/* Footer: profile + theme */}
         <div
-          className={`m-4 flex items-center gap-2 ${
-            collapsed ? "flex-col" : "justify-between"
+          className={`m-4 flex gap-2 ${
+            collapsed ? "flex-col items-center" : "items-center justify-between"
           }`}
         >
           <ConsoleProfileMenu initials={initials} collapsed={collapsed} />

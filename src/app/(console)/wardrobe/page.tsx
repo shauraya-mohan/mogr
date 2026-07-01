@@ -19,7 +19,7 @@ export default function WardrobeInventoryPage() {
   // Freshly-scanned item hand-off (?added=1 from the scan flow).
   const [pending, setPending] = useState(false);
 
-  const gridRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Detect the scan → inventory hand-off without useSearchParams (keeps this a
   // plain client page — no Suspense boundary needed).
@@ -37,7 +37,7 @@ export default function WardrobeInventoryPage() {
     (i) => !removed.has(i.name) && (filter === "all" || i.cat === filter)
   );
 
-  useReveal(gridRef, [filter, visible.length, pending]);
+  useReveal(containerRef, [filter, visible.length, pending]);
 
   const showPending = pending && (filter === "all" || filter === "outerwear");
   const isEmpty = visible.length === 0 && !showPending;
@@ -53,7 +53,7 @@ export default function WardrobeInventoryPage() {
   }
 
   return (
-    <div className="style-layout">
+    <div className="style-layout" ref={containerRef}>
       {/* Header */}
       <header className="page-head">
         <div>
@@ -104,7 +104,7 @@ export default function WardrobeInventoryPage() {
           </div>
 
           {/* Closet grid */}
-          <section className="closet-grid" ref={gridRef} aria-label="Your garments">
+          <section className="closet-grid" aria-label="Your garments">
             {showPending && (
               <article className="garment-card is-processing rise in" data-cat="outerwear">
                 <div className="garment-card__stage">

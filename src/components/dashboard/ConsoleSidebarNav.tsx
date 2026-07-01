@@ -31,8 +31,8 @@ export default function ConsoleSidebarNav({
           ? pathname === route || pathname.startsWith(`${route}/`)
           : false;
 
-        const shared = `flex items-center rounded-[10px] font-mono text-[14px] tracking-[0.01em] transition-colors ${
-          collapsed ? "justify-center px-0 py-2.5" : "w-full gap-3 px-3 py-2.5"
+        const shared = `flex w-full items-center rounded-[10px] font-mono text-[14px] tracking-[0.01em] transition-colors ${
+          collapsed ? "justify-center py-2.5" : "gap-3 px-3 py-2.5"
         }`;
 
         if (!route) {

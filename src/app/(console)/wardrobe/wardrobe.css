@@ -144,19 +144,19 @@
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 5px 9px; border-radius: 999px;
-  color: rgba(244,242,236,0.9);
-  border: 1px solid rgba(244,242,236,0.2);
+  color: rgba(244,242,236,0.96);
+  border: 1px solid rgba(244,242,236,0.34);
 }
 .overlay-actions { display: flex; gap: 8px; align-self: flex-end; }
 .icon-btn {
   display: inline-grid; place-items: center;
   width: 34px; height: 34px; border-radius: 9px;
-  color: var(--bone);
-  background: rgba(244,242,236,0.1);
-  border: 1px solid rgba(244,242,236,0.16);
-  transition: background 0.35s var(--ease), border-color 0.35s var(--ease);
+  color: #F4F2EC;
+  background: rgba(244,242,236,0.16);
+  border: 1px solid rgba(244,242,236,0.34);
+  transition: background 0.35s var(--ease), border-color 0.35s var(--ease), color 0.35s var(--ease);
 }
-.icon-btn:hover { background: rgba(244,242,236,0.2); border-color: #C68A47; }
+.icon-btn:hover { background: var(--bronze); border-color: var(--bronze); color: #FCFBF7; }
 .icon-btn svg { width: 16px; height: 16px; }
 
 /* ---- Processing (pending) card — skeleton shimmer, no spinner ---- */
