@@ -579,6 +579,62 @@
 }
 
 /* ============================================================
+   REAL IMAGERY — cutouts, live camera, editable tags, bulk grid
+   ============================================================ */
+/* Photoroom cutout on the Cloud surface (transparent PNG, contained). */
+.garment-card__stage .cutout {
+  position: absolute; inset: 14px;
+  width: calc(100% - 28px); height: calc(100% - 28px);
+  object-fit: contain;
+}
+.result-cutout .cutout {
+  position: absolute; inset: 20px;
+  width: calc(100% - 40px); height: calc(100% - 40px);
+  object-fit: contain;
+}
+
+/* Live camera fills the capture viewport. */
+.viewport video { width: 100%; height: 100%; object-fit: cover; }
+
+/* Free-text editable tag (name / type). */
+.tag-input {
+  font-family: var(--font-body); font-size: 14px; color: var(--ink);
+  padding: 8px 12px; border-radius: 10px; width: 100%; max-width: 280px;
+  background: var(--cloud); border: 1px solid var(--ink-12);
+  transition: border-color 0.35s var(--ease);
+}
+.tag-input:focus { outline: none; border-color: var(--bronze); }
+
+/* Read-only extra tags under the editable rows. */
+.tag-meta {
+  margin: 16px 0 0; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--stone);
+}
+
+/* Bulk scan results grid. */
+.bulk-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: clamp(12px, 1.6vw, 18px); margin-top: 8px; text-align: left;
+}
+.bulk-cell {
+  border-radius: 14px; background: var(--cloud);
+  border: 1px solid var(--ink-08); overflow: hidden;
+}
+.bulk-cell .garment-card__stage { aspect-ratio: 4 / 5; }
+.bulk-cell .cutout {
+  position: absolute; inset: 12px;
+  width: calc(100% - 24px); height: calc(100% - 24px); object-fit: contain;
+}
+.bulk-cell__name {
+  padding: 10px 12px 14px; margin: 0;
+  font-family: var(--font-display); font-weight: 500; font-size: 14px;
+  letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 860px) { .bulk-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .bulk-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ============================================================
    REDUCED MOTION — show final states, kill loops
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {

@@ -1,39 +1,144 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { DETECTED, PROCESSING_STATUS } from "@/lib/wardrobe/content";
+import { useRouter } from "next/navigation";
+import {
+  CATEGORY_OPTIONS,
+  FIT_OPTIONS,
+  FORMALITY_OPTIONS,
+  PATTERN_OPTIONS,
+  PROCESSING_STATUS,
+  STYLE_OPTIONS,
+  colourLabel,
+  type GarmentTags,
+} from "@/lib/wardrobe/content";
+import { processGarment, saveGarment } from "@/lib/wardrobe/store";
 import { useReveal } from "@/lib/wardrobe/useReveal";
+import GarmentCapture from "@/components/wardrobe/GarmentCapture";
 import EditableTag from "@/components/wardrobe/EditableTag";
 
-type ScanState = "capture" | "processing" | "result" | "rejected";
+type Mode = "capture" | "processing" | "result" | "rejected" | "bulk";
+
+interface Single {
+  cutoutPath: string;
+  cutoutUrl: string | null;
+  tags: GarmentTags;
+}
+
+interface Job {
+  src: string;
+  status: "processing" | "added" | "rejected" | "error";
+  name?: string;
+  cutoutUrl?: string | null;
+}
+
+const CONCURRENCY = 3;
 
 export default function WardrobeScanPage() {
-  const [state, setState] = useState<ScanState>("capture");
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>("capture");
   const [procIdx, setProcIdx] = useState(0);
 
-  const stageRef = useRef<HTMLDivElement>(null);
-  useReveal(stageRef, [state]);
+  // single
+  const [single, setSingle] = useState<Single | null>(null);
+  const [edited, setEdited] = useState<GarmentTags | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Processing → result. TODO(backend): this stands in for the Photoroom
-  // cutout + VLM tagging round-trip (POST /api/wardrobe/items → poll). Resolve
-  // to "result" on success, or "rejected" if the tagger returns isGarment:false.
+  // bulk
+  const [jobs, setJobs] = useState<Job[]>([]);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  useReveal(stageRef, [mode, single, jobs.length]);
+
+  // Cycle the processing status lines while a single scan is in flight.
   useEffect(() => {
-    if (state !== "processing") return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (mode !== "processing") return;
     setProcIdx(0);
-    const step = reduced ? 350 : 1100;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (let i = 1; i < PROCESSING_STATUS.length; i++) {
-      timers.push(setTimeout(() => setProcIdx(i), step * i));
+    const id = setInterval(
+      () => setProcIdx((i) => (i + 1) % PROCESSING_STATUS.length),
+      1100
+    );
+    return () => clearInterval(id);
+  }, [mode]);
+
+  function reset() {
+    setSingle(null);
+    setEdited(null);
+    setJobs([]);
+    setMode("capture");
+  }
+
+  async function onCapture(sources: string[]) {
+    if (sources.length === 1) return startSingle(sources[0]);
+    return startBulk(sources);
+  }
+
+  async function startSingle(src: string) {
+    setMode("processing");
+    try {
+      const r = await processGarment(src);
+      if (!r.isGarment || !r.tags || !r.cutoutPath) {
+        setMode("rejected");
+        return;
+      }
+      setSingle({ cutoutPath: r.cutoutPath, cutoutUrl: r.cutoutUrl ?? null, tags: r.tags });
+      setEdited(r.tags);
+      setMode("result");
+    } catch {
+      setMode("rejected");
     }
-    timers.push(setTimeout(() => setState("result"), reduced ? 900 : 3500));
-    return () => timers.forEach(clearTimeout);
-  }, [state]);
+  }
+
+  async function startBulk(sources: string[]) {
+    setMode("bulk");
+    const init: Job[] = sources.map((src) => ({ src, status: "processing" }));
+    setJobs(init);
+
+    let next = 0;
+    const worker = async () => {
+      while (next < sources.length) {
+        const idx = next++;
+        try {
+          const r = await processGarment(sources[idx]);
+          if (r.isGarment && r.tags && r.cutoutPath) {
+            await saveGarment(r.cutoutPath, r.tags);
+            update(idx, { status: "added", name: r.tags.name, cutoutUrl: r.cutoutUrl ?? null });
+          } else {
+            update(idx, { status: "rejected" });
+          }
+        } catch {
+          update(idx, { status: "error" });
+        }
+      }
+    };
+    const update = (idx: number, patch: Partial<Job>) =>
+      setJobs((prev) => prev.map((j, i) => (i === idx ? { ...j, ...patch } : j)));
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, sources.length) }, worker)
+    );
+  }
+
+  async function addSingle() {
+    if (!single || !edited) return;
+    setSaving(true);
+    try {
+      await saveGarment(single.cutoutPath, edited);
+      router.push("/wardrobe");
+    } catch {
+      setSaving(false);
+    }
+  }
+
+  const setField = <K extends keyof GarmentTags>(key: K, value: GarmentTags[K]) =>
+    setEdited((t) => (t ? { ...t, [key]: value } : t));
+
+  const bulkDone = jobs.length > 0 && jobs.every((j) => j.status !== "processing");
+  const addedCount = jobs.filter((j) => j.status === "added").length;
 
   return (
     <div className="scan-flow" data-screen-label="wardrobe-scan">
-      {/* Top bar: back + wordmark + close */}
       <div className="scan-topbar">
         <Link className="scan-nav-btn" href="/wardrobe" aria-label="Back to wardrobe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -53,51 +158,16 @@ export default function WardrobeScanPage() {
       </div>
 
       <div className="scan-stage" ref={stageRef}>
-        {/* STATE 1 — CAPTURE */}
-        {state === "capture" && (
-          <section className="scan-state is-current" data-state="capture">
-            <div className="scan-state__inner">
-              <p className="scan-step-label">Scan · one item at a time</p>
-
-              {/* Live-camera viewport / upload drop zone.
-                  TODO(backend): attach getUserMedia() stream here (mirror
-                  CameraCapture.tsx); on "upload instead", swap in a file drop. */}
-              <div className="viewport">
-                <div className="viewport__reticle">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <span className="viewport__hint">
-                  <span className="rec" />
-                  camera preview
-                </span>
-              </div>
-
-              <p className="capture-guidance">
-                Lay it flat or hang it. Good light, plain background. One piece at
-                a time.
-              </p>
-
-              <div className="capture-actions">
-                <button className="btn btn-lg" type="button" onClick={() => setState("processing")}>
-                  <span className="btn-dot" />
-                  Capture
-                </button>
-                <button className="text-link" type="button" onClick={() => setState("processing")}>
-                  upload instead
-                </button>
-              </div>
-
-              <p className="progress-hint">Item 4 of your wardrobe</p>
-            </div>
+        {/* CAPTURE */}
+        {mode === "capture" && (
+          <section className="scan-state is-current">
+            <GarmentCapture onCapture={onCapture} />
           </section>
         )}
 
-        {/* STATE 2 — PROCESSING */}
-        {state === "processing" && (
-          <section className="scan-state is-current" data-state="processing">
+        {/* PROCESSING (single) */}
+        {mode === "processing" && (
+          <section className="scan-state is-current">
             <div className="scan-state__inner">
               <p className="scan-step-label">Working on it</p>
               <div className="proc-card">
@@ -114,47 +184,98 @@ export default function WardrobeScanPage() {
           </section>
         )}
 
-        {/* STATE 3 — RESULT / CONFIRM */}
-        {state === "result" && (
-          <section className="scan-state is-current" data-state="result">
+        {/* RESULT (single) */}
+        {mode === "result" && single && edited && (
+          <section className="scan-state is-current">
             <div className="scan-state__inner" style={{ maxWidth: 820 }}>
               <div className="result-grid">
-                {/* clean ghost-mannequin cutout (the payoff).
-                    TODO(backend) IMAGE SLOT: replace .garment-ph with the
-                    returned Photoroom cutout <img>. */}
                 <div className="result-cutout rise">
-                  <div className="garment-ph" style={{ "--tint": "#6B6B3A" } as CSSProperties}>
-                    <span className="garment-ph__label">
-                      cutout
-                      <br />
-                      overshirt
-                    </span>
-                  </div>
+                  {single.cutoutUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="cutout" src={single.cutoutUrl} alt={edited.name} />
+                  ) : (
+                    <div className="garment-ph">
+                      <span className="garment-ph__label">cutout</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rise" data-rise-delay="0.1">
                   <p className="tags-label">we detected — tap to fix anything</p>
+
                   <div className="tag-list">
-                    {DETECTED.map((field) => (
-                      <div className="tag-row" key={field.key}>
-                        <span className="tag-row__key">{field.key}</span>
-                        <EditableTag field={field} />
+                    <div className="tag-row">
+                      <span className="tag-row__key">Name</span>
+                      <input
+                        className="tag-input"
+                        value={edited.name}
+                        onChange={(e) => setField("name", e.target.value)}
+                      />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Category</span>
+                      <EditableTag
+                        value={edited.category}
+                        options={CATEGORY_OPTIONS}
+                        onChange={(v) => setField("category", v as GarmentTags["category"])}
+                      />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Type</span>
+                      <input
+                        className="tag-input"
+                        value={edited.subtype}
+                        onChange={(e) => setField("subtype", e.target.value)}
+                      />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Colours</span>
+                      <div className="colour-chips">
+                        {edited.colors.map((c, i) => (
+                          <span className="swatch-chip" key={i}>
+                            <span className="mini-swatch" style={{ background: c.hex }} />
+                            {colourLabel(c)}
+                          </span>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Pattern</span>
+                      <EditableTag value={edited.pattern} options={PATTERN_OPTIONS} onChange={(v) => setField("pattern", v)} />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Fit</span>
+                      <EditableTag value={edited.fit} options={FIT_OPTIONS} onChange={(v) => setField("fit", v)} />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Formality</span>
+                      <EditableTag value={edited.formality} options={FORMALITY_OPTIONS} onChange={(v) => setField("formality", v)} />
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag-row__key">Style</span>
+                      <EditableTag
+                        value={edited.style[0] ?? "unclear"}
+                        options={STYLE_OPTIONS}
+                        onChange={(v) => setField("style", [v, ...edited.style.slice(1)])}
+                      />
+                    </div>
                   </div>
 
+                  {/* read-only richness the tagger captured */}
+                  {(edited.material || edited.season?.length || edited.occasions?.length) && (
+                    <p className="tag-meta">
+                      {[edited.material, edited.season?.join(" / "), edited.occasions?.join(" · ")]
+                        .filter((x) => x && x !== "unclear")
+                        .join("  ·  ")}
+                    </p>
+                  )}
+
                   <div className="result-actions">
-                    {/* TODO(backend): confirm overrides → the item is already
-                        created; this just returns to the closet. */}
-                    <Link className="btn btn-lg" href="/wardrobe?added=1">
+                    <button className="btn btn-lg" type="button" onClick={addSingle} disabled={saving}>
                       <span className="btn-dot" />
-                      Add to wardrobe
-                    </Link>
-                    <button
-                      className="btn btn-secondary btn-lg"
-                      type="button"
-                      onClick={() => setState("capture")}
-                    >
+                      {saving ? "Adding…" : "Add to wardrobe"}
+                    </button>
+                    <button className="btn btn-secondary btn-lg" type="button" onClick={reset}>
                       Scan another
                     </button>
                   </div>
@@ -164,9 +285,62 @@ export default function WardrobeScanPage() {
           </section>
         )}
 
-        {/* STATE 4 — REJECTED */}
-        {state === "rejected" && (
-          <section className="scan-state is-current" data-state="rejected">
+        {/* BULK */}
+        {mode === "bulk" && (
+          <section className="scan-state is-current">
+            <div className="scan-state__inner" style={{ maxWidth: 820 }}>
+              <p className="scan-step-label">
+                {bulkDone
+                  ? `Added ${addedCount} of ${jobs.length}`
+                  : `Processing ${jobs.filter((j) => j.status !== "processing").length}/${jobs.length}…`}
+              </p>
+              <div className="bulk-grid">
+                {jobs.map((j, i) => (
+                  <div className="bulk-cell" key={i}>
+                    <div className="garment-card__stage">
+                      {j.status === "processing" ? (
+                        <div className="skeleton" />
+                      ) : j.cutoutUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className="cutout" src={j.cutoutUrl} alt={j.name ?? "garment"} />
+                      ) : (
+                        <div className="garment-ph">
+                          <span className="garment-ph__label">
+                            {j.status === "rejected" ? "not a garment" : "failed"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="bulk-cell__name">
+                      {j.status === "processing"
+                        ? "Processing…"
+                        : j.status === "added"
+                        ? j.name
+                        : j.status === "rejected"
+                        ? "Skipped"
+                        : "Failed"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {bulkDone && (
+                <div className="result-actions" style={{ justifyContent: "center" }}>
+                  <button className="btn btn-lg" type="button" onClick={() => router.push("/wardrobe")}>
+                    <span className="btn-dot" />
+                    Done
+                  </button>
+                  <button className="btn btn-secondary btn-lg" type="button" onClick={reset}>
+                    Scan more
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* REJECTED (single) */}
+        {mode === "rejected" && (
+          <section className="scan-state is-current">
             <div className="scan-state__inner">
               <div className="rejected-card">
                 <div className="rejected-card__icon">
@@ -176,7 +350,7 @@ export default function WardrobeScanPage() {
                   </svg>
                 </div>
                 <p>That doesn&apos;t look like a garment — try a clothing photo.</p>
-                <button className="btn btn-lg" type="button" onClick={() => setState("capture")}>
+                <button className="btn btn-lg" type="button" onClick={reset}>
                   <span className="btn-dot" />
                   Retake
                 </button>

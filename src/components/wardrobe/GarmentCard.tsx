@@ -1,67 +1,56 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { pieceLabel, type WardrobeItemView } from "@/lib/wardrobe/content";
+import type { GarmentColor } from "@/lib/wardrobe/content";
 
 /**
- * One closet garment. The stage shows a hatched placeholder tinted by the
- * dominant colour. TODO(backend) IMAGE SLOT: replace .garment-ph with the
- * item's Photoroom cutout <img src={signedUrl}>. Edit/remove map to
- * PATCH/DELETE /api/wardrobe/items/{id}.
+ * One closet garment — real Photoroom cutout on the Cloud surface, name +
+ * detected colours, and a hover overlay with key tags + remove.
  */
 export default function GarmentCard({
-  item,
+  name,
+  cutoutUrl,
+  colors,
+  formality,
+  fit,
   riseDelay,
   onRemove,
 }: {
-  item: WardrobeItemView;
+  name: string;
+  cutoutUrl: string | null;
+  colors: GarmentColor[];
+  formality?: string;
+  fit?: string;
   riseDelay: number;
   onRemove: () => void;
 }) {
   return (
-    <article
-      className="garment-card rise"
-      data-cat={item.cat}
-      tabIndex={0}
-      data-rise-delay={riseDelay.toFixed(2)}
-    >
+    <article className="garment-card rise" tabIndex={0} data-rise-delay={riseDelay.toFixed(2)}>
       <div className="garment-card__stage">
-        <div className="garment-ph" style={{ "--tint": item.colors[0] } as CSSProperties}>
-          <span className="garment-ph__label">
-            cutout
-            <br />
-            {pieceLabel(item.name)}
-          </span>
-        </div>
+        {cutoutUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="cutout" src={cutoutUrl} alt={name} />
+        ) : (
+          <div className="garment-ph">
+            <span className="garment-ph__label">no image</span>
+          </div>
+        )}
       </div>
       <div className="garment-card__foot">
-        <p className="garment-card__name">{item.name}</p>
+        <p className="garment-card__name">{name}</p>
         <div className="swatches">
-          {item.colors.map((c, i) => (
-            <span key={i} className="swatch-dot" style={{ background: c }} />
+          {colors.map((c, i) => (
+            <span key={i} className="swatch-dot" style={{ background: c.hex }} title={c.name} />
           ))}
         </div>
       </div>
 
-      {/* hover overlay: key tags + edit / remove */}
       <div className="garment-card__overlay">
         <div className="overlay-tags">
-          <span className="tag-mini">{item.formality}</span>
-          <span className="tag-mini">{item.fit}</span>
+          {formality && formality !== "unclear" && <span className="tag-mini">{formality}</span>}
+          {fit && fit !== "unclear" && <span className="tag-mini">{fit}</span>}
         </div>
         <div className="overlay-actions">
-          <button className="icon-btn" type="button" aria-label={`Edit ${item.name}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            type="button"
-            aria-label={`Remove ${item.name}`}
-            onClick={onRemove}
-          >
+          <button className="icon-btn" type="button" aria-label={`Remove ${name}`} onClick={onRemove}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 7h16" />
               <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
