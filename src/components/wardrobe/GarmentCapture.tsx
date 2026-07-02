@@ -12,11 +12,20 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function CameraIcon() {
+  return (
+    <svg className="btn__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8.6A2 2 0 0 1 5 6.6h1.5l1-1.7a1 1 0 0 1 .85-.5h5.3a1 1 0 0 1 .85.5l1 1.7H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="12.4" r="3.2" />
+    </svg>
+  );
+}
+
 /**
- * Garment capture: live camera (rear camera on mobile / webcam on desktop) with
- * a snapshot button, a single-photo upload, and a bulk upload (up to BULK_LIMIT).
- * Hands the parent an array of image data URLs — one for a single capture/upload,
- * many for a bulk selection.
+ * Garment capture: live camera (rear on mobile / webcam on desktop) with a
+ * snapshot button, single-photo upload, and bulk upload (up to BULK_LIMIT).
+ * ONE <video> is always mounted so the stream stays attached (swapping the
+ * element on a ready flag is what left the feed black before).
  */
 export default function GarmentCapture({
   onCapture,
@@ -27,15 +36,15 @@ export default function GarmentCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const singleInput = useRef<HTMLInputElement>(null);
   const bulkInput = useRef<HTMLInputElement>(null);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: { facingMode: "environment", width: { ideal: 1280 } },
           audio: false,
         });
         if (cancelled) {
@@ -43,13 +52,13 @@ export default function GarmentCapture({
           return;
         }
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
+        const v = videoRef.current;
+        if (v) {
+          v.srcObject = stream;
+          await v.play().catch(() => {});
         }
-        setCameraReady(true);
       } catch {
-        setCameraError(true);
+        setError(true);
       }
     })();
     return () => {
@@ -82,30 +91,32 @@ export default function GarmentCapture({
     if (files.length) onCapture(await Promise.all(files.map(fileToDataUrl)));
   }
 
+  const live = ready && !error;
+
   return (
     <div className="scan-state__inner">
       <p className="scan-step-label">Scan · one item at a time</p>
 
       <div className="viewport">
-        {cameraReady && !cameraError ? (
-          <video ref={videoRef} playsInline muted />
-        ) : (
-          <>
-            <div className="viewport__reticle">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-            <span className="viewport__hint">
-              <span className="rec" />
-              {cameraError ? "camera unavailable — upload below" : "starting camera…"}
-            </span>
-          </>
-        )}
-        {/* keep the video mounted so the stream attaches even before ready */}
-        {!cameraReady && !cameraError && (
-          <video ref={videoRef} playsInline muted style={{ display: "none" }} />
+        <video
+          ref={videoRef}
+          className={`viewport__video${live ? " is-live" : ""}`}
+          playsInline
+          muted
+          autoPlay
+          onCanPlay={() => setReady(true)}
+        />
+        <div className="viewport__reticle" aria-hidden>
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+        {!live && (
+          <span className="viewport__hint">
+            <span className="rec" />
+            {error ? "camera unavailable, upload below" : "starting camera"}
+          </span>
         )}
       </div>
 
@@ -114,22 +125,22 @@ export default function GarmentCapture({
       </p>
 
       <div className="capture-actions">
-        {cameraReady && !cameraError && (
+        {live && (
           <button className="btn btn-lg" type="button" onClick={snapshot}>
-            <span className="btn-dot" />
+            <CameraIcon />
             Capture
           </button>
         )}
         <button
-          className={cameraReady && !cameraError ? "text-link" : "btn btn-lg"}
+          className={live ? "text-link" : "btn btn-lg"}
           type="button"
           onClick={() => singleInput.current?.click()}
         >
-          {cameraReady && !cameraError ? (
+          {live ? (
             "upload a photo instead"
           ) : (
             <>
-              <span className="btn-dot" />
+              <CameraIcon />
               Upload a photo
             </>
           )}
@@ -139,21 +150,8 @@ export default function GarmentCapture({
         </button>
       </div>
 
-      <input
-        ref={singleInput}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={onSingle}
-      />
-      <input
-        ref={bulkInput}
-        type="file"
-        accept="image/*"
-        multiple
-        hidden
-        onChange={onBulk}
-      />
+      <input ref={singleInput} type="file" accept="image/*" hidden onChange={onSingle} />
+      <input ref={bulkInput} type="file" accept="image/*" multiple hidden onChange={onBulk} />
     </div>
   );
 }

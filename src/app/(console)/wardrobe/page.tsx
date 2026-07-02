@@ -16,6 +16,34 @@ import GarmentCard from "@/components/wardrobe/GarmentCard";
 type Filter = "all" | Category;
 type Item = WardrobeItemRow & { cutoutUrl: string | null };
 
+/** A quiet hanger-rail illustration for the empty closet. */
+function ClosetArt() {
+  const hangers = [74, 130, 186];
+  return (
+    <div className="closet-art" aria-hidden>
+      <svg viewBox="0 0 260 122" fill="none">
+        <line x1="22" y1="30" x2="238" y2="30" stroke="var(--ink-12)" strokeWidth="2" strokeLinecap="round" />
+        {hangers.map((cx) => (
+          <g key={cx} stroke="var(--stone)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
+            <circle cx={cx} cy="24" r="3.6" />
+            <path d={`M${cx} 28 L${cx - 30} 58 Q${cx - 34} 64 ${cx - 27} 64 L${cx + 27} 64 Q${cx + 34} 64 ${cx + 30} 58 Z`} />
+            <path d={`M${cx - 26} 62 q-2 28 7 44 M${cx + 26} 62 q2 28 -7 44`} opacity="0.55" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg className="btn__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8.6A2 2 0 0 1 5 6.6h1.5l1-1.7a1 1 0 0 1 .85-.5h5.3a1 1 0 0 1 .85.5l1 1.7H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="12.4" r="3.2" />
+    </svg>
+  );
+}
+
 export default function WardrobeInventoryPage() {
   const [items, setItems] = useState<Item[] | null>(null); // null = loading
   const [filter, setFilter] = useState<Filter>("all");
@@ -135,20 +163,24 @@ export default function WardrobeInventoryPage() {
       )}
 
       {isEmpty && (
-        <section className="empty-state">
+        <section className="closet-empty">
+          <ClosetArt />
           <p className="eyebrow" style={{ justifyContent: "center" }}>
             wardrobe
           </p>
-          <h2>
+          <h2 className="closet-empty__title">
             Start building your closet<span className="dot">.</span>
           </h2>
-          <p>
-            Scan the clothes you already own, one piece at a time. We&apos;ll cut
-            them out, tag them, and start styling from what&apos;s actually yours.
+          <p className="closet-empty__sub">
+            Scan the clothes you own, one piece at a time. We cut them out, tag
+            them, and start styling from what&apos;s actually yours.
           </p>
-          <Link className="btn btn-lg" href="/wardrobe/scan">
-            <span className="btn-dot" />+ Scan your first item
-          </Link>
+          <div className="closet-empty__actions">
+            <Link className="btn btn-lg btn-bronze" href="/wardrobe/scan">
+              <CameraIcon />
+              Scan your first item
+            </Link>
+          </div>
         </section>
       )}
     </div>

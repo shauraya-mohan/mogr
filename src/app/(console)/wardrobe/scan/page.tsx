@@ -35,29 +35,37 @@ interface Job {
 
 const CONCURRENCY = 3;
 
+function ScanSweep() {
+  return (
+    <div className="scan-sweep">
+      <div className="scan-sweep__line" />
+      <div className="scan-sweep__glow" />
+    </div>
+  );
+}
+
 export default function WardrobeScanPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("capture");
   const [procIdx, setProcIdx] = useState(0);
+  const [pendingSrc, setPendingSrc] = useState<string | null>(null);
 
-  // single
   const [single, setSingle] = useState<Single | null>(null);
   const [edited, setEdited] = useState<GarmentTags | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // bulk
   const [jobs, setJobs] = useState<Job[]>([]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   useReveal(stageRef, [mode, single, jobs.length]);
 
-  // Cycle the processing status lines while a single scan is in flight.
+  // Cycle the status lines while a single scan runs (smooth crossfade in place).
   useEffect(() => {
     if (mode !== "processing") return;
     setProcIdx(0);
     const id = setInterval(
       () => setProcIdx((i) => (i + 1) % PROCESSING_STATUS.length),
-      1100
+      1500
     );
     return () => clearInterval(id);
   }, [mode]);
@@ -65,6 +73,7 @@ export default function WardrobeScanPage() {
   function reset() {
     setSingle(null);
     setEdited(null);
+    setPendingSrc(null);
     setJobs([]);
     setMode("capture");
   }
@@ -75,6 +84,7 @@ export default function WardrobeScanPage() {
   }
 
   async function startSingle(src: string) {
+    setPendingSrc(src);
     setMode("processing");
     try {
       const r = await processGarment(src);
@@ -92,10 +102,11 @@ export default function WardrobeScanPage() {
 
   async function startBulk(sources: string[]) {
     setMode("bulk");
-    const init: Job[] = sources.map((src) => ({ src, status: "processing" }));
-    setJobs(init);
+    setJobs(sources.map((src) => ({ src, status: "processing" })));
 
     let next = 0;
+    const update = (idx: number, patch: Partial<Job>) =>
+      setJobs((prev) => prev.map((j, i) => (i === idx ? { ...j, ...patch } : j)));
     const worker = async () => {
       while (next < sources.length) {
         const idx = next++;
@@ -112,12 +123,7 @@ export default function WardrobeScanPage() {
         }
       }
     };
-    const update = (idx: number, patch: Partial<Job>) =>
-      setJobs((prev) => prev.map((j, i) => (i === idx ? { ...j, ...patch } : j)));
-
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, sources.length) }, worker)
-    );
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, sources.length) }, worker));
   }
 
   async function addSingle() {
@@ -136,6 +142,15 @@ export default function WardrobeScanPage() {
 
   const bulkDone = jobs.length > 0 && jobs.every((j) => j.status !== "processing");
   const addedCount = jobs.filter((j) => j.status === "added").length;
+
+  const metaChips = edited
+    ? [
+        edited.material,
+        ...(edited.season ?? []),
+        ...(edited.occasions ?? []),
+        ...(edited.details ?? []),
+      ].filter((x) => x && x !== "unclear")
+    : [];
 
   return (
     <div className="scan-flow" data-screen-label="wardrobe-scan">
@@ -171,7 +186,11 @@ export default function WardrobeScanPage() {
             <div className="scan-state__inner">
               <p className="scan-step-label">Working on it</p>
               <div className="proc-card">
-                <div className="skeleton" />
+                {pendingSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="proc-shot" src={pendingSrc} alt="" />
+                )}
+                <ScanSweep />
               </div>
               <div className="status-lines">
                 {PROCESSING_STATUS.map((line, i) => (
@@ -180,6 +199,9 @@ export default function WardrobeScanPage() {
                   </p>
                 ))}
               </div>
+              <div className="proc-bar" aria-hidden>
+                <span />
+              </div>
             </div>
           </section>
         )}
@@ -187,7 +209,7 @@ export default function WardrobeScanPage() {
         {/* RESULT (single) */}
         {mode === "result" && single && edited && (
           <section className="scan-state is-current">
-            <div className="scan-state__inner" style={{ maxWidth: 820 }}>
+            <div className="scan-state__inner" style={{ maxWidth: 860 }}>
               <div className="result-grid">
                 <div className="result-cutout rise">
                   {single.cutoutUrl ? (
@@ -201,7 +223,7 @@ export default function WardrobeScanPage() {
                 </div>
 
                 <div className="rise" data-rise-delay="0.1">
-                  <p className="tags-label">we detected — tap to fix anything</p>
+                  <p className="tags-label">Detected. Tap any tag to fix it.</p>
 
                   <div className="tag-list">
                     <div className="tag-row">
@@ -232,7 +254,7 @@ export default function WardrobeScanPage() {
                       <span className="tag-row__key">Colours</span>
                       <div className="colour-chips">
                         {edited.colors.map((c, i) => (
-                          <span className="swatch-chip" key={i}>
+                          <span className="swatch-chip is-readonly" key={i}>
                             <span className="mini-swatch" style={{ background: c.hex }} />
                             {colourLabel(c)}
                           </span>
@@ -261,19 +283,20 @@ export default function WardrobeScanPage() {
                     </div>
                   </div>
 
-                  {/* read-only richness the tagger captured */}
-                  {(edited.material || edited.season?.length || edited.occasions?.length) && (
-                    <p className="tag-meta">
-                      {[edited.material, edited.season?.join(" / "), edited.occasions?.join(" · ")]
-                        .filter((x) => x && x !== "unclear")
-                        .join("  ·  ")}
-                    </p>
+                  {metaChips.length > 0 && (
+                    <div className="tag-chips">
+                      {metaChips.map((m, i) => (
+                        <span className="tag-chip" key={i}>
+                          {m}
+                        </span>
+                      ))}
+                    </div>
                   )}
 
                   <div className="result-actions">
                     <button className="btn btn-lg" type="button" onClick={addSingle} disabled={saving}>
                       <span className="btn-dot" />
-                      {saving ? "Adding…" : "Add to wardrobe"}
+                      {saving ? "Adding" : "Add to wardrobe"}
                     </button>
                     <button className="btn btn-secondary btn-lg" type="button" onClick={reset}>
                       Scan another
@@ -288,21 +311,25 @@ export default function WardrobeScanPage() {
         {/* BULK */}
         {mode === "bulk" && (
           <section className="scan-state is-current">
-            <div className="scan-state__inner" style={{ maxWidth: 820 }}>
+            <div className="scan-state__inner" style={{ maxWidth: 860 }}>
               <p className="scan-step-label">
                 {bulkDone
                   ? `Added ${addedCount} of ${jobs.length}`
-                  : `Processing ${jobs.filter((j) => j.status !== "processing").length}/${jobs.length}…`}
+                  : `Processing ${jobs.filter((j) => j.status !== "processing").length} of ${jobs.length}`}
               </p>
               <div className="bulk-grid">
                 {jobs.map((j, i) => (
                   <div className="bulk-cell" key={i}>
                     <div className="garment-card__stage">
-                      {j.status === "processing" ? (
-                        <div className="skeleton" />
-                      ) : j.cutoutUrl ? (
+                      {j.status === "added" && j.cutoutUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img className="cutout" src={j.cutoutUrl} alt={j.name ?? "garment"} />
+                      ) : j.status === "processing" ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img className="bulk-shot" src={j.src} alt="" />
+                          <ScanSweep />
+                        </>
                       ) : (
                         <div className="garment-ph">
                           <span className="garment-ph__label">
@@ -313,7 +340,7 @@ export default function WardrobeScanPage() {
                     </div>
                     <p className="bulk-cell__name">
                       {j.status === "processing"
-                        ? "Processing…"
+                        ? "Reading"
                         : j.status === "added"
                         ? j.name
                         : j.status === "rejected"
@@ -349,7 +376,7 @@ export default function WardrobeScanPage() {
                     <path d="M3 3l18 18" strokeWidth="1.6" />
                   </svg>
                 </div>
-                <p>That doesn&apos;t look like a garment — try a clothing photo.</p>
+                <p>That does not look like a garment. Try a clothing photo.</p>
                 <button className="btn btn-lg" type="button" onClick={reset}>
                   <span className="btn-dot" />
                   Retake

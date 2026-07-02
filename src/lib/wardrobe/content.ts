@@ -217,9 +217,9 @@ export const OUTFITS: Outfit[] = [
       { name: "Olive overshirt", tint: "#6B6B3A", slot: "layer" },
     ],
     rationale:
-      "Layered and easy, but considered. The overshirt does the talking so you don't have to — throw it over the henley and leave it open.",
+      "Layered and easy, but considered. The overshirt does the talking so you don't have to. Throw it over the henley and leave it open.",
     colorLine: "Earthy olive and off-white lean into your warm undertone.",
-    fitNote: "Keep the henley slim and the jeans straight — one clean line, top to bottom.",
+    fitNote: "Keep the henley slim and the jeans straight, one clean line top to bottom.",
     gap: null,
   },
   {
@@ -233,7 +233,7 @@ export const OUTFITS: Outfit[] = [
     ],
     rationale:
       "The uniform that always works. Tonal up top, the bomber adds just enough structure for coffee-to-dinner.",
-    colorLine: "Warm neutrals with a navy anchor — quiet, and firmly in your lane.",
+    colorLine: "Warm neutrals with a navy anchor. Quiet, and firmly in your lane.",
     fitNote: "Cuff the chinos once to break over the sneaker.",
     gap: null,
   },
@@ -248,7 +248,7 @@ export const OUTFITS: Outfit[] = [
     ],
     rationale:
       "Grown-up without a suit. The camel coat warms up the charcoal and reads intentional the second you walk in.",
-    colorLine: "Camel against charcoal is your highest-payoff pairing — warm over cool, low contrast.",
+    colorLine: "Camel against charcoal is your highest-payoff pairing: warm over cool, low contrast.",
     fitNote: "Tuck the oxford; let the trousers just kiss the shoe.",
     gap: "A knit tie in muted brown would sharpen this even further.",
   },
