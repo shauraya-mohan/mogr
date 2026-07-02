@@ -42,15 +42,15 @@ export const CATEGORIES: Category[] = [
     overlayCat: "01 / Skin",
     label: "Skin",
     description: "Scan your skin. Get an essential AM/PM routine built for you.",
-    placeholder: "image — skin",
+    placeholder: "image · skin",
   },
   {
     index: "02",
     indexLabel: "02 / HAIR",
     overlayCat: "02 / Hair",
     label: "Hair",
-    description: "Find cuts that suit your face — previewed on your actual face.",
-    placeholder: "image — hair",
+    description: "Find cuts that suit your face, previewed on your actual face.",
+    placeholder: "image · hair",
   },
   {
     index: "03",
@@ -58,7 +58,7 @@ export const CATEGORIES: Category[] = [
     overlayCat: "03 / Facial Hair",
     label: "Facial Hair",
     description: "Beard styles matched to your growth and jawline.",
-    placeholder: "image — facial hair",
+    placeholder: "image · facial hair",
   },
   {
     index: "04",
@@ -66,7 +66,7 @@ export const CATEGORIES: Category[] = [
     overlayCat: "04 / Wardrobe",
     label: "Wardrobe",
     description: "Colors and fits that work for your tone and build.",
-    placeholder: "image — wardrobe",
+    placeholder: "image · wardrobe",
   },
 ];
 
@@ -88,7 +88,7 @@ export const HOW_STEPS: HowStep[] = [
     num: "02",
     tag: "read",
     title: "Get your read",
-    body: "A calm, honest assessment and a routine built around what you actually have — not a generic checklist.",
+    body: "A calm, honest assessment and a routine built around what you actually have, not a generic checklist.",
   },
   {
     num: "03",
@@ -110,14 +110,14 @@ export const PROOF_FRAMES: ProofFrame[] = [
   {
     tag: "Today",
     heading: "Where you are",
-    body: "A clear, kind starting point. No scores, no judgement — just an honest look.",
-    placeholder: "image — your scan",
+    body: "A clear, kind starting point. No scores, no judgement, just an honest look.",
+    placeholder: "image · your scan",
   },
   {
     tag: "Dialed in",
     heading: "Where you're headed",
     body: "An AI preview of the upgraded you, with the small, doable steps that get you there.",
-    placeholder: "image — ai preview",
+    placeholder: "image · ai preview",
     isAfter: true,
   },
 ];

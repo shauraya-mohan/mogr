@@ -40,7 +40,7 @@ export default function Proof() {
         <Frame frame={after} />
       </div>
       <p className="text-center mt-[clamp(26px,4vh,40px)] font-mono text-[13px] tracking-[0.04em] text-stone">
-        Encouraging coaching — not a number.
+        Encouraging coaching, not a number.
       </p>
     </section>
   );

@@ -40,7 +40,7 @@ export default function WhyMogr() {
         </div>
         <div className="why-body">
           <p className="reveal-up">
-            One scan feeds skin, hair, beard and style at the same time — so the
+            One scan feeds skin, hair, beard and style at the same time, so the
             advice fits together instead of pulling four ways.
           </p>
           <p className="reveal-up">

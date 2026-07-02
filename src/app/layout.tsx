@@ -24,9 +24,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "mogr. — groommax",
+  title: "mogr. · groommax",
   description:
-    "mogr — scan your face, hair, beard and wardrobe. Get personalized grooming coaching and an AI preview of the upgraded you.",
+    "mogr. Scan your face, hair, beard and wardrobe. Get personalized grooming coaching and an AI preview of the upgraded you.",
 };
 
 /* No-flash theme init — runs before first paint. Dark is the default;

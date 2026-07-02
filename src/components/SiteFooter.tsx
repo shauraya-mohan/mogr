@@ -33,7 +33,7 @@ export default function SiteFooter() {
             />
             <p className="mt-[18px] max-w-[34ch] text-graphite text-[15px]">
               Men&apos;s grooming, systemized. Scan your face, hair, beard and
-              wardrobe — get coaching and a preview of the upgraded you.
+              wardrobe. Get coaching and a preview of the upgraded you.
             </p>
           </div>
 
