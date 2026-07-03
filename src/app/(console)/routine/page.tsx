@@ -83,7 +83,7 @@ export default function RoutinePage() {
 
   return (
     <>
-      <header className="mb-[clamp(8px,1.5vh,16px)] flex items-start justify-between gap-6">
+      <header className="mb-[clamp(8px,1.5vh,16px)] flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <p className="eyebrow mb-3">{ROUTINE_COPY.eyebrow}</p>
           <h1 className="font-display text-[clamp(34px,5vw,52px)] font-bold leading-[0.95] tracking-[-0.04em]">
@@ -91,9 +91,9 @@ export default function RoutinePage() {
           </h1>
         </div>
         {steps.length > 0 && (
-          <span className="mt-1 inline-flex shrink-0 items-center gap-2.5 rounded-full border border-[var(--ink-12)] px-4 py-2 font-mono text-[12px] uppercase tracking-[0.1em] text-graphite">
-            <span className="h-1.5 w-1.5 rounded-full bg-bronze" />
-            {pinnedCount} {pinnedCount === 1 ? "step" : "steps"} on your dashboard
+          <span className="mt-1 inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--ink-12)] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-graphite sm:gap-2.5 sm:px-4 sm:text-[12px] sm:tracking-[0.1em]">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-bronze" />
+            <span className="truncate">{pinnedCount} {pinnedCount === 1 ? "step" : "steps"} on your dashboard</span>
           </span>
         )}
       </header>
