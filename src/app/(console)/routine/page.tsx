@@ -237,9 +237,18 @@ function StepList({ steps, editing, ctl }: { steps: RoutineStep[]; editing: bool
     reset();
   }
 
+  // Touch-friendly move (drag-and-drop never fires from touch on mobile).
+  function move(index: number, dir: -1 | 1) {
+    const to = index + dir;
+    if (to < 0 || to >= steps.length) return;
+    const ids = steps.map((s) => s.id);
+    [ids[index], ids[to]] = [ids[to], ids[index]];
+    ctl.reorder(ids);
+  }
+
   return (
     <ul>
-      {steps.map((s) => (
+      {steps.map((s, i) => (
         <Row
           key={s.id}
           step={s}
@@ -247,6 +256,10 @@ function StepList({ steps, editing, ctl }: { steps: RoutineStep[]; editing: bool
           ctl={ctl}
           dragging={dragId === s.id}
           over={overId === s.id && dragId !== s.id}
+          isFirst={i === 0}
+          isLast={i === steps.length - 1}
+          onMoveUp={() => move(i, -1)}
+          onMoveDown={() => move(i, 1)}
           onDragStart={() => setDragId(s.id)}
           onDragEnter={() => dragId && setOverId(s.id)}
           onDrop={() => drop(s.id)}
@@ -263,6 +276,10 @@ function Row({
   ctl,
   dragging,
   over,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
   onDragStart,
   onDragEnter,
   onDrop,
@@ -273,6 +290,10 @@ function Row({
   ctl: Ctl;
   dragging: boolean;
   over: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDrop: () => void;
@@ -290,15 +311,42 @@ function Row({
         dragging ? "opacity-40" : "opacity-100"
       } ${over ? "shadow-[inset_0_2px_0_0_var(--bronze)]" : ""}`}
     >
-      {/* Drag handle */}
+      {/* Drag handle — desktop (drag-and-drop) */}
       <span
         draggable
         onDragStart={onDragStart}
         aria-label="Drag to reorder"
-        className="mt-1 shrink-0 cursor-grab text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze active:cursor-grabbing"
+        className="mt-1 hidden shrink-0 cursor-grab text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze active:cursor-grabbing lg:block"
       >
         <GripIcon />
       </span>
+
+      {/* Up/down stepper — mobile (touch) */}
+      <div className="mt-0.5 flex shrink-0 flex-col overflow-hidden rounded-[9px] border border-[var(--ink-12)] lg:hidden">
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={isFirst}
+          aria-label="Move up"
+          className="grid h-[26px] w-8 place-items-center text-stone transition-colors hover:text-bronze disabled:opacity-25 disabled:hover:text-stone"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 14l6-6 6 6" />
+          </svg>
+        </button>
+        <span className="h-px bg-[var(--ink-08)]" />
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={isLast}
+          aria-label="Move down"
+          className="grid h-[26px] w-8 place-items-center text-stone transition-colors hover:text-bronze disabled:opacity-25 disabled:hover:text-stone"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 10l6 6 6-6" />
+          </svg>
+        </button>
+      </div>
 
       <div className="min-w-0 flex-1">
         {editing ? (

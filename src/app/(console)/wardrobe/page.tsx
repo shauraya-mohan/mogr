@@ -12,6 +12,7 @@ import {
 import { fetchWardrobe, deleteGarment } from "@/lib/wardrobe/store";
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import GarmentCard from "@/components/wardrobe/GarmentCard";
+import { FILTER_ICONS } from "@/components/wardrobe/categoryIcons";
 
 type Filter = "all" | Category;
 type Item = WardrobeItemRow & { cutoutUrl: string | null };
@@ -131,18 +132,22 @@ export default function WardrobeInventoryPage() {
       {!loading && !isEmpty && (
         <>
           <div className="filter-row rise" data-rise-delay="0.15" role="tablist" aria-label="Filter by category">
-            {INVENTORY_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                className={`chip${filter === f.value ? " is-active" : ""}`}
-                role="tab"
-                aria-selected={filter === f.value}
-                onClick={() => setFilter(f.value)}
-              >
-                {f.label}
-              </button>
-            ))}
+            {INVENTORY_FILTERS.map((f) => {
+              const Icon = FILTER_ICONS[f.value];
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  className={`chip${filter === f.value ? " is-active" : ""}`}
+                  role="tab"
+                  aria-selected={filter === f.value}
+                  onClick={() => setFilter(f.value)}
+                >
+                  {Icon && <Icon className="chip__ic" />}
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
 
           <section className="closet-grid" aria-label="Your garments">
