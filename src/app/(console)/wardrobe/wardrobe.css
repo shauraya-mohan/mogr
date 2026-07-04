@@ -648,6 +648,12 @@
 .swatch-chip.is-readonly { cursor: default; }
 .swatch-chip.is-readonly:hover { border-color: var(--ink-12); }
 
+/* Edit-item modal entrance. */
+@keyframes itemModalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Read-only extra tags (material, season, occasions, details) as quiet chips. */
 .tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .tag-chip {

@@ -59,6 +59,21 @@ export async function saveGarment(cutoutPath: string, tags: GarmentTags): Promis
   if (error) throw error;
 }
 
+/** Save edited tags back to an existing garment. */
+export async function updateGarment(id: string, tags: GarmentTags): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("wardrobe_items")
+    .update({
+      category: tags.category,
+      name: tags.name,
+      color: tags.colors?.[0]?.hex ?? null,
+      data: tags,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /** The user's closet, newest first, each with a fresh signed cutout URL. */
 export async function fetchWardrobe(): Promise<
   (WardrobeItemRow & { cutoutUrl: string | null })[]

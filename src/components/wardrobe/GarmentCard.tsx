@@ -13,6 +13,7 @@ export default function GarmentCard({
   formality,
   fit,
   riseDelay,
+  onEdit,
   onRemove,
 }: {
   name: string;
@@ -21,6 +22,7 @@ export default function GarmentCard({
   formality?: string;
   fit?: string;
   riseDelay: number;
+  onEdit: () => void;
   onRemove: () => void;
 }) {
   return (
@@ -50,6 +52,12 @@ export default function GarmentCard({
           {fit && fit !== "unclear" && <span className="tag-mini">{fit}</span>}
         </div>
         <div className="overlay-actions">
+          <button className="icon-btn" type="button" aria-label={`Edit ${name}`} onClick={onEdit}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+            </svg>
+          </button>
           <button className="icon-btn" type="button" aria-label={`Remove ${name}`} onClick={onRemove}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 7h16" />

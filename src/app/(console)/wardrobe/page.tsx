@@ -7,15 +7,40 @@ import {
   FILTER_NOUN,
   type Category,
   type GarmentColor,
+  type GarmentTags,
   type WardrobeItemRow,
 } from "@/lib/wardrobe/content";
 import { fetchWardrobe, deleteGarment } from "@/lib/wardrobe/store";
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import GarmentCard from "@/components/wardrobe/GarmentCard";
+import GarmentEditModal from "@/components/wardrobe/GarmentEditModal";
 import { FILTER_ICONS } from "@/components/wardrobe/categoryIcons";
 
 type Filter = "all" | Category;
 type Item = WardrobeItemRow & { cutoutUrl: string | null };
+
+/** Editable tag set for an item, with a fallback for legacy rows lacking data. */
+function toTags(item: Item): GarmentTags {
+  return (
+    item.data ?? {
+      isGarment: true,
+      name: item.name ?? "Garment",
+      category: (item.category as GarmentTags["category"]) ?? "unclear",
+      subtype: "",
+      colors: item.color ? [{ name: "Colour", hex: item.color }] : [],
+      pattern: "unclear",
+      print: null,
+      style: [],
+      fit: "unclear",
+      formality: "unclear",
+      material: "unclear",
+      season: [],
+      occasions: [],
+      details: [],
+      notes: "",
+    }
+  );
+}
 
 /** A quiet hanger-rail illustration for the empty closet. */
 function ClosetArt() {
@@ -48,6 +73,7 @@ function CameraIcon() {
 export default function WardrobeInventoryPage() {
   const [items, setItems] = useState<Item[] | null>(null); // null = loading
   const [filter, setFilter] = useState<Filter>("all");
+  const [editTarget, setEditTarget] = useState<Item | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,6 +94,17 @@ export default function WardrobeInventoryPage() {
     filter === "all"
       ? `${visible.length} ${noun}`
       : `${visible.length} ${noun} · ${FILTER_NOUN[filter]}`;
+
+  function onSaved(itemId: string, tags: GarmentTags) {
+    setItems((prev) =>
+      (prev ?? []).map((i) =>
+        i.id === itemId
+          ? { ...i, name: tags.name, category: tags.category, data: tags }
+          : i
+      )
+    );
+    setEditTarget(null);
+  }
 
   async function remove(item: Item) {
     setItems((prev) => (prev ?? []).filter((i) => i.id !== item.id));
@@ -160,6 +197,7 @@ export default function WardrobeInventoryPage() {
                 formality={item.data?.formality}
                 fit={item.data?.fit}
                 riseDelay={Math.min(i * 0.03, 0.3)}
+                onEdit={() => setEditTarget(item)}
                 onRemove={() => remove(item)}
               />
             ))}
@@ -187,6 +225,16 @@ export default function WardrobeInventoryPage() {
             </Link>
           </div>
         </section>
+      )}
+
+      {editTarget && (
+        <GarmentEditModal
+          id={editTarget.id}
+          cutoutUrl={editTarget.cutoutUrl}
+          tags={toTags(editTarget)}
+          onClose={() => setEditTarget(null)}
+          onSaved={(t) => onSaved(editTarget.id, t)}
+        />
       )}
     </div>
   );
