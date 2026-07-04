@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Loader from "@/components/Loader";
 import { createClient } from "@/lib/supabase/client";
 import { useRoutine } from "@/lib/routine/useRoutine";
 import {
@@ -52,7 +53,7 @@ export default function RoutinePage() {
   }, []);
 
   if (steps === null) {
-    return <p className="font-mono text-[13px] text-stone">Loading…</p>;
+    return <Loader label="loading" />;
   }
 
   const pinnedCount = steps.filter((s) => s.pinned).length;
@@ -142,26 +143,30 @@ function Card({
 
   return (
     <section className={CARD_CLS}>
-      {/* Card header */}
-      <div className="mb-[clamp(18px,2.4vw,28px)] flex items-center gap-4">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] border border-[var(--ink-08)] bg-bone text-bronze dark:border-bronze/20 dark:bg-bronze/10">
-          {Icon ? <Icon className="h-5 w-5" /> : <span className="h-2 w-2 rounded-full bg-bronze" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[clamp(20px,2.2vw,26px)] font-bold leading-tight tracking-[-0.02em] text-ink">
+      {/* Card header — icon centered on the title; subtitle sits beneath it */}
+      <div className="mb-[clamp(18px,2.4vw,28px)]">
+        <div className="flex items-center gap-3.5">
+          <span className="shrink-0 text-bronze">
+            {Icon ? (
+              <Icon className="h-[26px] w-[26px]" />
+            ) : (
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-bronze" />
+            )}
+          </span>
+          <h2 className="min-w-0 flex-1 truncate font-display text-[clamp(20px,2.2vw,26px)] font-bold leading-tight tracking-[-0.02em] text-ink">
             {card.title}
           </h2>
-          <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
-            {subtitle}
-          </p>
+          <button
+            type="button"
+            onClick={onToggleEdit}
+            className="shrink-0 font-mono text-[12px] uppercase tracking-[0.14em] text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze"
+          >
+            {editing ? "done" : "edit"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onToggleEdit}
-          className="shrink-0 font-mono text-[12px] uppercase tracking-[0.14em] text-stone transition-colors duration-300 ease-[var(--ease)] hover:text-bronze"
-        >
-          {editing ? "done" : "edit"}
-        </button>
+        <p className="mt-1.5 truncate pl-10 font-mono text-[11px] uppercase tracking-[0.14em] text-stone">
+          {subtitle}
+        </p>
       </div>
 
       {/* Body */}

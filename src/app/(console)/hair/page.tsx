@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/Button";
+import Loader from "@/components/Loader";
 import HaircareSection from "@/components/hair/HaircareSection";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -134,10 +135,10 @@ export default function HairPage() {
             prev.map((s) => (s.id === style.id ? { ...s, status: "ready" } : s)),
           );
         } else if (!silent) {
-          setError("Couldn't render that style — try again.");
+          setError("Couldn't render that one. Try again.");
         }
       } catch {
-        if (!silent) setError("Couldn't render that style — try again.");
+        if (!silent) setError("Couldn't render that one. Try again.");
       } finally {
         inFlight.current.delete(style.id);
         if (!silent) setPreviewLoading(false);
@@ -181,7 +182,7 @@ export default function HairPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === "no-scan" ? "Take a scan first." : "Analysis failed — try again.");
+        setError(json.error === "no-scan" ? "Take a scan first." : "Analysis failed. Try again.");
         setAnalyzing(false);
         return;
       }
@@ -190,7 +191,7 @@ export default function HairPage() {
       setSelectedId(json.styles[0]?.id ?? null);
       setMode("results");
     } catch {
-      setError("Analysis failed — try again.");
+      setError("Analysis failed. Try again.");
     } finally {
       setAnalyzing(false);
     }
@@ -225,7 +226,7 @@ export default function HairPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError("Couldn't regenerate — try again.");
+        setError("Couldn't regenerate. Try again.");
         return;
       }
       setPreviews({});
@@ -237,7 +238,7 @@ export default function HairPage() {
       if (latestScan) setResultsScanId(latestScan.id);
       setNewerDismissed(false);
     } catch {
-      setError("Couldn't regenerate — try again.");
+      setError("Couldn't regenerate. Try again.");
     } finally {
       setRegenerating(false);
     }
@@ -256,12 +257,12 @@ export default function HairPage() {
   async function copyBrief(style: Style) {
     const url = previews[style.id];
     const text = [
-      "mogr — hair brief",
+      "mogr · hair brief",
       `Style: ${style.name}`,
       "",
       style.full_brief || style.brief || "",
       "",
-      `Face shape: ${read.face_shape ?? "—"} · Hair: ${read.hair_type ?? "—"}`,
+      `Face shape: ${read.face_shape ?? "–"} · Hair: ${read.hair_type ?? "–"}`,
     ].join("\n");
     try {
       if (url && typeof ClipboardItem !== "undefined") {
@@ -282,7 +283,7 @@ export default function HairPage() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch {
-        setError("Couldn't copy — try again.");
+        setError("Couldn't copy. Try again.");
       }
     }
   }
@@ -298,7 +299,7 @@ export default function HairPage() {
 
   // ============================ states ============================
   if (mode === "loading") {
-    return <p className="font-mono text-[13px] text-stone">Loading…</p>;
+    return <Loader label="loading" />;
   }
 
   if (mode === "need-scan") {
@@ -457,14 +458,16 @@ export default function HairPage() {
             <div className="absolute inset-0 grid place-items-center">
               {previewLoading ? (
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-bronze" />
+                  <span className="comb-loader" aria-hidden>
+                    <span /><span /><span /><span /><span />
+                  </span>
                   <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]/70">
                     {HAIR_COPY.generating}
                   </p>
                 </div>
               ) : (
                 <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F4F2EC]/40">
-                  select a style
+                  pick a style to preview
                 </p>
               )}
             </div>
@@ -514,7 +517,7 @@ export default function HairPage() {
                   <rect x="9" y="9" width="13" height="13" rx="2" />
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                 </svg>
-                {copied ? "Copied — paste anywhere" : "Copy look + brief"}
+                {copied ? "Copied. Paste anywhere" : "Copy look + brief"}
               </button>
               <button
                 type="button"

@@ -82,7 +82,7 @@ export default function WardrobeStylePage() {
             rows={2}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="…or describe it — 'dinner date, cooler evening, keep it understated'"
+            placeholder="…or describe it: 'dinner date, cooler evening, keep it understated'"
           />
 
           <div className="style-actions rise" data-rise-delay="0.15">

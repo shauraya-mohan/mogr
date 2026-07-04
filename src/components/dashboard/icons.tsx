@@ -7,7 +7,7 @@ const base: SVGProps<SVGSVGElement> = {
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.6,
+  strokeWidth: 1.7,
   strokeLinecap: "round",
   strokeLinejoin: "round",
   "aria-hidden": true,
@@ -15,11 +15,17 @@ const base: SVGProps<SVGSVGElement> = {
 
 /* ---- Category icons (dashboard quick cards) ---- */
 
+/* Duotone: a soft currentColor fill under the stroke gives the marks weight and
+   depth (reads crafted, not a hollow line icon), and stays theme-aware. */
 export function SkinIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z" />
-      <path d="M9 14.5a3 3 0 0 0 3 2.5" />
+      <path
+        d="M12 5c3.1 3.6 5.1 6.2 5.1 8.9a5.1 5.1 0 0 1-10.2 0c0-2.7 2-5.3 5.1-8.9z"
+        fill="currentColor"
+        fillOpacity={0.16}
+      />
+      <path d="M9.3 15.2a2.7 2.7 0 0 0 2.2 2.2" />
     </svg>
   );
 }
@@ -27,8 +33,9 @@ export function SkinIcon(props: SVGProps<SVGSVGElement>) {
 export function HairIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M4 8.5h16" />
-      <path d="M6.5 8.5v6M10 8.5v6M14 8.5v6M17.5 8.5v6" />
+      <path d="M4 8.5h16v2.1H4z" fill="currentColor" fillOpacity={0.16} stroke="none" />
+      <path d="M4 9.5h16" />
+      <path d="M6.5 9.5v6M10 9.5v6M14 9.5v6M17.5 9.5v6" />
     </svg>
   );
 }
@@ -36,9 +43,13 @@ export function HairIcon(props: SVGProps<SVGSVGElement>) {
 export function FacialHairIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M5 9.5a7 7 0 0 1 14 0v1.5a7 7 0 0 1-14 0z" />
-      <path d="M9 12c1.2.9 4.8.9 6 0" />
-      <path d="M8.5 14c.4 3 1.9 5 3.5 5s3.1-2 3.5-5" />
+      <path
+        d="M5 7.5a7 7 0 0 1 14 0v1.5a7 7 0 0 1-14 0z"
+        fill="currentColor"
+        fillOpacity={0.14}
+      />
+      <path d="M9 10c1.2.9 4.8.9 6 0" />
+      <path d="M8.5 12c.4 3 1.9 5 3.5 5s3.1-2 3.5-5" />
     </svg>
   );
 }
@@ -46,7 +57,11 @@ export function FacialHairIcon(props: SVGProps<SVGSVGElement>) {
 export function WardrobeIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>
-      <path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.34 2.23l.58 3.47A1 1 0 0 0 3.83 10H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.17a1 1 0 0 0 .99-.8l.58-3.47a2 2 0 0 0-1.34-2.23z" />
+      <path
+        d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.34 2.23l.58 3.47A1 1 0 0 0 3.83 10H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.17a1 1 0 0 0 .99-.8l.58-3.47a2 2 0 0 0-1.34-2.23z"
+        fill="currentColor"
+        fillOpacity={0.14}
+      />
     </svg>
   );
 }
@@ -61,12 +76,12 @@ export const CATEGORY_ICONS: Record<CategoryKey, Icon> = {
 /* ---- Sidebar nav icons ---- */
 
 function Dashboard(props: SVGProps<SVGSVGElement>) {
+  // An actual dashboard layout (rail + two stacked panels), not four dots.
   return (
     <svg {...base} {...props}>
-      <rect x="3" y="3" width="7" height="7" rx="1.6" />
-      <rect x="14" y="3" width="7" height="7" rx="1.6" />
-      <rect x="14" y="14" width="7" height="7" rx="1.6" />
-      <rect x="3" y="14" width="7" height="7" rx="1.6" />
+      <rect x="3" y="3.5" width="7" height="17" rx="1.8" />
+      <rect x="14" y="3.5" width="7" height="7.5" rx="1.8" />
+      <rect x="14" y="13" width="7" height="7.5" rx="1.8" />
     </svg>
   );
 }
@@ -96,19 +111,24 @@ function Routine(props: SVGProps<SVGSVGElement>) {
 }
 
 function Looks(props: SVGProps<SVGSVGElement>) {
+  // Saved looks = a small gallery of framed shots, not a sparkle.
   return (
     <svg {...base} {...props}>
-      <path d="M11 3l1.7 4.3L17 9l-4.3 1.7L11 15l-1.7-4.3L5 9l4.3-1.7z" />
-      <path d="M18 14l.6 1.6 1.6.6-1.6.6L18 19l-.6-1.6-1.6-.6 1.6-.6z" />
+      <rect x="3.3" y="6.4" width="11.5" height="13.3" rx="2.2" />
+      <rect x="9.2" y="4.3" width="11.5" height="13.3" rx="2.2" />
+      <circle cx="13" cy="8.9" r="1.15" />
+      <path d="M9.6 15.4l3-2.9 2 1.9 3.3-3.2" />
     </svg>
   );
 }
 
 function Progress(props: SVGProps<SVGSVGElement>) {
+  // Ascending bars read as progress more plainly than a trend squiggle.
   return (
     <svg {...base} {...props}>
-      <path d="M3 17l5-5 4 4 8-8" />
-      <path d="M17 8h4v4" />
+      <path d="M4 20.5V13" />
+      <path d="M12 20.5V9" />
+      <path d="M20 20.5V5" />
     </svg>
   );
 }

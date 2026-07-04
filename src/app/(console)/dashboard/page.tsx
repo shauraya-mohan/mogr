@@ -115,7 +115,7 @@ function FeatureToggle({
     <button
       type="button"
       onClick={() => onChange(fh ? "hair" : "facial_hair")}
-      aria-label={fh ? "Showing facial-hair routine — switch to hair" : "Showing hair routine — switch to facial hair"}
+      aria-label={fh ? "Showing facial-hair routine, switch to hair" : "Showing hair routine, switch to facial hair"}
       className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors duration-300 ease-[var(--ease)] ${
         fh
           ? "border-bronze bg-transparent text-bronze hover:bg-bronze/10"
@@ -232,10 +232,10 @@ export default function DashboardPage() {
       // Dense); fall back to the first word of the growth phrase if it's missing.
       const beardVal = beard.data?.density ?? beard.data?.growth?.split(/[\s,]+/)[0] ?? null;
       setRead([
-        { label: "Face shape", value: prof.data?.face_shape ?? "—" },
-        { label: "Skin shade", value: prof.data?.skin_shade ?? "—" },
-        { label: "Hair", value: hair.data?.hair_type ?? "—" },
-        { label: "Beard type", value: beardVal ?? "—" },
+        { label: "Face shape", value: prof.data?.face_shape ?? "–" },
+        { label: "Skin shade", value: prof.data?.skin_shade ?? "–" },
+        { label: "Hair", value: hair.data?.hair_type ?? "–" },
+        { label: "Beard type", value: beardVal ?? "–" },
       ]);
     })();
   }, []);
@@ -261,7 +261,7 @@ export default function DashboardPage() {
       <header className="mb-[clamp(24px,4vh,40px)] flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow mb-3">
-            {greeting.day ? `${greeting.day} — let's lock in` : "let's lock in"}
+            {greeting.day ? `${greeting.day}, let's lock in` : "let's lock in"}
           </p>
           <h1 className="font-display text-[clamp(34px,5vw,52px)] font-bold leading-[0.95] tracking-[-0.04em]">
             {greeting.word}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/Button";
+import Loader from "@/components/Loader";
 import SkinCapture from "@/components/skin/SkinCapture";
 import { useRoutine } from "@/lib/routine/useRoutine";
 import { findStep, shortenLabel, shortenDetail } from "@/lib/routine/content";
@@ -127,7 +128,7 @@ export default function SkinPage() {
       setSaving(false);
       setMode("questionnaire");
     } catch {
-      setError("Couldn't save the scan — try again.");
+      setError("Couldn't save the scan. Try again.");
       setSaving(false);
       setMode("capture");
     }
@@ -146,10 +147,10 @@ export default function SkinPage() {
       const json = await res.json();
       if (!res.ok) {
         if (json.error === "unusable-image") {
-          setError("That photo wasn't clear enough — let's retake it.");
+          setError("That photo wasn't clear enough. Let's retake it.");
           setMode("capture");
         } else {
-          setError("Analysis failed — try again.");
+          setError("Analysis failed. Try again.");
           setMode("questionnaire");
         }
         return;
@@ -160,7 +161,7 @@ export default function SkinPage() {
       loadScanMeta(scanId);
       setMode("results");
     } catch {
-      setError("Analysis failed — try again.");
+      setError("Analysis failed. Try again.");
       setMode("questionnaire");
     }
   }
@@ -192,7 +193,7 @@ export default function SkinPage() {
   const allAnswered = SKIN_QUESTIONS.every((q) => answers[q.id]);
 
   if (mode === "loading") {
-    return <p className="font-mono text-[13px] text-stone">Loading…</p>;
+    return <Loader label="loading" />;
   }
 
   // ── capture ──
@@ -363,7 +364,7 @@ export default function SkinPage() {
             {SKIN_COPY.skinTypeLabel}
           </p>
           <h2 className="mb-6 font-display text-[clamp(28px,3.4vw,40px)] font-bold capitalize tracking-[-0.03em] text-ink">
-            {read?.skinType?.value ?? "—"}
+            {read?.skinType?.value ?? "–"}
           </h2>
           <div className="border-t border-[var(--ink-08)]">
             {zT && (

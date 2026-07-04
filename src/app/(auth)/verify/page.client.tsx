@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
 import Button from "@/components/Button";
+import Loader from "@/components/Loader";
 import { createClient } from "@/lib/supabase/client";
 import { VERIFY } from "@/lib/scan/content";
 
@@ -244,8 +245,8 @@ export default function VerifyPage() {
                   </p>
                 )}
 
-                <Button type="submit" size="lg" className="w-full justify-center">
-                  {submitting ? "…" : VERIFY.verifyButton}
+                <Button type="submit" size="lg" dot={!submitting} disabled={submitting} className="w-full justify-center">
+                  {submitting ? <Loader /> : VERIFY.verifyButton}
                 </Button>
               </form>
 

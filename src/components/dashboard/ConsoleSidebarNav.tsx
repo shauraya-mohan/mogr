@@ -62,7 +62,13 @@ export default function ConsoleSidebarNav({
                 : "text-[#8E897D] hover:text-[#F4F2EC]"
             }`}
           >
-            {Icon && <Icon className="h-[18px] w-[18px] shrink-0" />}
+            {Icon && (
+              <Icon
+                className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+                  active ? "text-[#C68A47]" : ""
+                }`}
+              />
+            )}
             {!collapsed && item}
           </Link>
         );

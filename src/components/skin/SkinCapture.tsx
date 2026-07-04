@@ -250,7 +250,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
     );
   }
 
-  const statusText = reason ? GATE_REASONS[reason] : "Looks good — hold still";
+  const statusText = reason ? GATE_REASONS[reason] : "Looks good. Hold still";
 
   return (
     <div className="grid items-start gap-[clamp(32px,5vw,64px)] lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
@@ -349,7 +349,7 @@ export default function SkinCapture({ onCapture, onError }: SkinCaptureProps) {
             />
           </button>
           <p className="text-[14px] leading-snug text-graphite">
-            <span className="font-medium text-ink">Ring light</span> — brighten your face using the screen
+            <span className="font-medium text-ink">Ring light</span>. Brighten your face using the screen
           </p>
         </div>
 

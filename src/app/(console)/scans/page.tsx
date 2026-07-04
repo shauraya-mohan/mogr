@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Button from "@/components/Button";
+import Loader from "@/components/Loader";
 import { createClient } from "@/lib/supabase/client";
 import { SKIN_QUESTIONS } from "@/lib/skin/content";
 
@@ -328,8 +329,12 @@ export default function ScansPage() {
           </h1>
         </div>
         <Button href={newScanHref} dot={false}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+            <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
+            <path d="M8 20H6a2 2 0 0 1-2-2v-2" />
+            <circle cx="12" cy="12" r="2.3" />
           </svg>
           {tab === "skin" ? "New skin scan" : "New scan"}
         </Button>
@@ -357,7 +362,7 @@ export default function ScansPage() {
       </div>
 
       {loading ? (
-        <p className="font-mono text-[13px] text-stone">Loading…</p>
+        <Loader label="loading" />
       ) : tab === "selfie" ? (
         cards.length === 0 ? (
           <EmptyState href="/scan" label="hair scans" />
@@ -422,7 +427,7 @@ export default function ScansPage() {
                         </div>
                       ) : (
                         <p className="font-mono text-[12px] text-stone">
-                          No styles yet —{" "}
+                          No styles yet.{" "}
                           <Link href="/hair" className="text-bronze hover:text-ink">
                             generate them
                           </Link>
@@ -460,7 +465,7 @@ export default function ScansPage() {
                         </div>
                       ) : (
                         <p className="font-mono text-[12px] text-stone">
-                          No styles yet —{" "}
+                          No styles yet.{" "}
                           <Link href="/facial-hair" className="text-bronze hover:text-ink">
                             generate them
                           </Link>

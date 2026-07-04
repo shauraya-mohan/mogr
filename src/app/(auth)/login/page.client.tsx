@@ -5,11 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Button from "@/components/Button";
+import Loader from "@/components/Loader";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 import { AUTH } from "@/lib/scan/content";
 
 type Mode = "signin" | "signup";
+
+// Borderless underline input — editorial, not a boxed field.
+const INPUT_CLS =
+  "mt-2.5 w-full rounded-none border-0 border-b border-[var(--ink-12)] bg-transparent px-0 py-2.5 font-body text-[16px] text-ink outline-none transition-colors duration-300 focus:border-bronze";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -116,23 +121,40 @@ export default function LoginPage() {
         <ThemeToggle />
       </header>
 
-      <main className="container-page flex-1 flex items-center justify-center py-12">
-        <div className="w-full max-w-[420px]">
-          <p className="eyebrow mb-4">
-            {mode === "signin" ? AUTH.signInEyebrow : AUTH.signUpEyebrow}
+      <main className="container-page flex-1 grid items-center gap-[clamp(40px,7vw,96px)] py-[clamp(32px,6vh,72px)] lg:grid-cols-[1.05fr_0.95fr]">
+        {/* Left — brand thesis (fills the void; type carries it) */}
+        <div className="hidden lg:block">
+          <p className="eyebrow mb-7">{mode === "signin" ? AUTH.signInEyebrow : AUTH.signUpEyebrow}</p>
+          <h2 className="font-display font-bold text-[clamp(52px,6vw,88px)] leading-[0.9] tracking-[-0.04em] text-ink text-balance">
+            Look like<br />you mean it<span className="text-bronze">.</span>
+          </h2>
+          <p className="mt-7 max-w-[36ch] text-graphite text-[clamp(15px,1.3vw,18px)] leading-relaxed">
+            One scan builds your grooming profile across skin, hair, beard and
+            wardrobe, then coaches the upgrade.
           </p>
-          <h1 className="font-display font-bold text-[clamp(32px,6vw,48px)] tracking-[-0.04em] leading-[0.95] mb-8">
+          <div className="mt-9 flex items-end gap-[3px]" aria-hidden>
+            {[10, 16, 22, 16, 10, 20, 13].map((h, i) => (
+              <span key={i} className="w-[3px] rounded-[1px] bg-bronze/70" style={{ height: h }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Right — the form, borderless, underline inputs */}
+        <div className="mx-auto w-full max-w-[400px] lg:mx-0 lg:justify-self-end">
+          <h1 className="font-display font-bold text-[clamp(30px,4.4vw,42px)] tracking-[-0.04em] leading-[0.95]">
             {mode === "signin" ? AUTH.signInTitle : AUTH.signUpTitle}
           </h1>
+          <p className="mt-2 mb-9 text-graphite text-[15px]">
+            {mode === "signin"
+              ? "Pick up where you left off."
+              : "A minute to set up, then scan."}
+          </p>
 
-          <form
-            onSubmit={handleSubmit}
-            className="bg-cloud border border-[var(--ink-08)] rounded-[18px] p-[clamp(24px,4vw,36px)] grid gap-5"
-          >
+          <form onSubmit={handleSubmit} className="grid gap-7">
             {mode === "signup" && (
-              <div className="grid grid-cols-[1.7fr_1fr] gap-4">
-                <label className="grid gap-2">
-                  <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+              <div className="grid grid-cols-[1.7fr_1fr] gap-6">
+                <label className="block">
+                  <span className="font-mono text-[11px] tracking-[0.16em] uppercase text-stone">
                     {AUTH.nameLabel}
                   </span>
                   <input
@@ -141,11 +163,11 @@ export default function LoginPage() {
                     autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                    className={INPUT_CLS}
                   />
                 </label>
-                <label className="grid gap-2">
-                  <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+                <label className="block">
+                  <span className="font-mono text-[11px] tracking-[0.16em] uppercase text-stone">
                     {AUTH.ageLabel}
                   </span>
                   <input
@@ -156,14 +178,14 @@ export default function LoginPage() {
                     inputMode="numeric"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                    className={INPUT_CLS}
                   />
                 </label>
               </div>
             )}
 
-            <label className="grid gap-2">
-              <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+            <label className="block">
+              <span className="font-mono text-[11px] tracking-[0.16em] uppercase text-stone">
                 {AUTH.emailLabel}
               </span>
               <input
@@ -172,12 +194,12 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                className={INPUT_CLS}
               />
             </label>
 
-            <label className="grid gap-2">
-              <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+            <label className="block">
+              <span className="font-mono text-[11px] tracking-[0.16em] uppercase text-stone">
                 {AUTH.passwordLabel}
               </span>
               <input
@@ -187,7 +209,7 @@ export default function LoginPage() {
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-bone border border-[var(--ink-08)] rounded-[10px] px-4 py-3 text-graphite font-body text-[15px] outline-none focus:border-bronze transition-colors duration-[400ms]"
+                className={INPUT_CLS}
               />
             </label>
 
@@ -197,8 +219,8 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" size="lg" className="w-full justify-center">
-              {loading ? "…" : mode === "signin" ? AUTH.signIn : AUTH.signUp}
+            <Button type="submit" size="lg" dot={!loading} disabled={loading} className="mt-1 w-full justify-center">
+              {loading ? <Loader /> : mode === "signin" ? AUTH.signIn : AUTH.signUp}
             </Button>
           </form>
 
@@ -208,7 +230,7 @@ export default function LoginPage() {
               setMode(mode === "signin" ? "signup" : "signin");
               setError(null);
             }}
-            className="mt-6 font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze"
+            className="mt-8 font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-ink"
           >
             {mode === "signin" ? AUTH.toggleSignUp : AUTH.toggleSignIn}
           </button>

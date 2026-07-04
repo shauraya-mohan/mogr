@@ -128,14 +128,14 @@ export default function BeardcareSection() {
       });
       const json = await res.json();
       if (!res.ok || !json.tips) {
-        setError("Couldn't build your routine — try again.");
+        setError("Couldn't build your routine. Try again.");
         return;
       }
       setTips(json.tips);
       setBuiltKey(key);
       setMode("tips");
     } catch {
-      setError("Couldn't build your routine — try again.");
+      setError("Couldn't build your routine. Try again.");
     } finally {
       setBuilding(false);
     }
