@@ -8,7 +8,7 @@ import {
 } from "@/lib/wardrobe/content";
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import OutfitCard from "@/components/wardrobe/OutfitCard";
-import ColourDrawer from "@/components/wardrobe/ColourDrawer";
+import ColourDrawer, { type DrawerPalette } from "@/components/wardrobe/ColourDrawer";
 import UndertoneQuiz from "@/components/wardrobe/UndertoneQuiz";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,9 +31,18 @@ export default function WardrobeStylePage() {
   const [prompt, setPrompt] = useState("");
   const [statusIdx, setStatusIdx] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // null = not yet fetched / being derived; DrawerPalette = ready
+  const [palette, setPalette] = useState<DrawerPalette | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
+
+  async function fetchPalette() {
+    const res = await fetch("/api/wardrobe/palette");
+    if (!res.ok) return;
+    const data = await res.json() as DrawerPalette;
+    setPalette(data);
+  }
 
   // Check whether the user has already answered the undertone quiz.
   useEffect(() => {
@@ -46,8 +55,14 @@ export default function WardrobeStylePage() {
         .select("undertone")
         .eq("id", user.id)
         .maybeSingle();
-      setMode(profile?.undertone ? "input" : "quiz");
+      if (profile?.undertone) {
+        setMode("input");
+        fetchPalette();
+      } else {
+        setMode("quiz");
+      }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Styling loader: cycle the status lines, then reveal results.
@@ -71,7 +86,14 @@ export default function WardrobeStylePage() {
   if (mode === "loading") return null;
 
   if (mode === "quiz") {
-    return <UndertoneQuiz onComplete={() => setMode("input")} />;
+    return (
+      <UndertoneQuiz
+        onComplete={() => {
+          setMode("input");
+          fetchPalette();
+        }}
+      />
+    );
   }
 
   return (
@@ -184,7 +206,7 @@ export default function WardrobeStylePage() {
         </section>
       )}
 
-      <ColourDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <ColourDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} palette={palette} />
     </div>
   );
 }

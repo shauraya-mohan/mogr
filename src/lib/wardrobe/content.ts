@@ -260,22 +260,3 @@ export const STYLING_STATUS = [
   "Putting looks together…",
 ];
 
-export interface Swatch {
-  hex: string;
-  name: string;
-}
-
-export const FLATTERING: Swatch[] = [
-  { hex: "#6B6B3A", name: "Olive" },
-  { hex: "#B08D57", name: "Camel" },
-  { hex: "#EDEAE0", name: "Off-white" },
-  { hex: "#9C5B33", name: "Rust" },
-  { hex: "#38493B", name: "Forest" },
-  { hex: "#27324E", name: "Navy" },
-];
-
-export const CAUTION: Swatch[] = [
-  { hex: "#CFE3EE", name: "Icy blue" },
-  { hex: "#B5487F", name: "Cool fuchsia" },
-  { hex: "#9AA0A6", name: "Cool grey" },
-];
