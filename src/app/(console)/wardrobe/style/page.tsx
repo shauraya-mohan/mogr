@@ -9,8 +9,10 @@ import {
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import OutfitCard from "@/components/wardrobe/OutfitCard";
 import ColourDrawer from "@/components/wardrobe/ColourDrawer";
+import UndertoneQuiz from "@/components/wardrobe/UndertoneQuiz";
+import { createClient } from "@/lib/supabase/client";
 
-type Mode = "input" | "styling" | "results";
+type Mode = "loading" | "quiz" | "input" | "styling" | "results";
 
 function PaletteIcon() {
   return (
@@ -24,7 +26,7 @@ function PaletteIcon() {
 }
 
 export default function WardrobeStylePage() {
-  const [mode, setMode] = useState<Mode>("input");
+  const [mode, setMode] = useState<Mode>("loading");
   const [occasion, setOccasion] = useState<string>("Casual");
   const [prompt, setPrompt] = useState("");
   const [statusIdx, setStatusIdx] = useState(0);
@@ -32,6 +34,21 @@ export default function WardrobeStylePage() {
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
+
+  // Check whether the user has already answered the undertone quiz.
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setMode("input"); return; }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("undertone")
+        .eq("id", user.id)
+        .maybeSingle();
+      setMode(profile?.undertone ? "input" : "quiz");
+    })();
+  }, []);
 
   // Styling loader: cycle the status lines, then reveal results.
   // TODO(backend): the timeout stands in for the POST /api/wardrobe/analyze
@@ -50,6 +67,12 @@ export default function WardrobeStylePage() {
   }, [mode]);
 
   const resultsTitle = occasion === "Casual" ? "Understated" : occasion;
+
+  if (mode === "loading") return null;
+
+  if (mode === "quiz") {
+    return <UndertoneQuiz onComplete={() => setMode("input")} />;
+  }
 
   return (
     <div className="style-layout" ref={contentRef}>

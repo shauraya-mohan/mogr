@@ -17,6 +17,7 @@ interface AnalyzedStyle {
 interface VisionRead {
   face_shape: string;
   hair_type: string;
+  hair_color: string;
   density: string;
   length: string;
   summary: string;
@@ -107,7 +108,13 @@ export async function POST(req: Request) {
   const styles = (read.styles ?? []).slice(0, 5);
 
   // Persist: shared read → profiles; hair read → hair_profiles.
-  await supabase.from("profiles").update({ face_shape: read.face_shape }).eq("id", user.id);
+  await supabase
+    .from("profiles")
+    .update({
+      face_shape: read.face_shape,
+      ...(read.hair_color && read.hair_color !== "unclear" ? { hair_tone: read.hair_color } : {}),
+    })
+    .eq("id", user.id);
   await supabase.from("hair_profiles").upsert({
     user_id: user.id,
     scan_id: scan.id,

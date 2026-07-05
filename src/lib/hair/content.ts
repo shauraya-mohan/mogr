@@ -97,6 +97,7 @@ Return ONLY valid JSON matching exactly this shape:
 {
   "face_shape": "one of: Oval, Round, Square, Oblong, Heart, Diamond, Triangle",
   "hair_type": "short phrase, e.g. 'Wavy, medium'",
+  "hair_color": "one of: Black, Dark brown, Brown, Light brown, Blonde, Auburn, Grey, White, unclear",
   "density": "Thin | Medium | Thick",
   "length": "Short | Medium | Long",
   "summary": "2-3 sentence encouraging read of what's working and where a change helps",
@@ -111,6 +112,7 @@ Return ONLY valid JSON matching exactly this shape:
   ]
 }
 
+hair_color: read the natural/current colour of the hair visible in the image. Use "unclear" only if the image quality makes it genuinely impossible to tell.
 Recommend exactly 4 styles, ordered best-fit first, varied (not 4 variations of one). Use the questionnaire to respect their maintenance/effort. No brand names.`;
 
 /* ============================================================
