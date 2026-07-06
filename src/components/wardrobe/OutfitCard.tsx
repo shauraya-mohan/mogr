@@ -67,13 +67,18 @@ export default function OutfitCard({
         <h3 className="outfit-title">{outfit.title}</h3>
         <p className="outfit-occasion">{outfit.occasion}</p>
         <p className="rationale">{outfit.rationale}</p>
-        <p className="color-line">{outfit.colorLine}</p>
+        <p className="color-line">{outfit.colorRationale}</p>
         <p className="fit-note">{outfit.fitNote}</p>
-        {outfit.gap && (
+        {outfit.outsideItems.length > 0 && (
           <p className="gap-note">
-            <span>{outfit.gap}</span>
+            <span>To complete this look: {outfit.outsideItems.join(", ")}.</span>
           </p>
         )}
+        {outfit.gaps.map((g, i) => (
+          <p key={i} className="gap-note">
+            <span>{g}</span>
+          </p>
+        ))}
         <div className="outfit-actions">
           {/* Save look → confirm inline. TODO(backend): POST saved_looks {kind:"wardrobe"}. */}
           <button

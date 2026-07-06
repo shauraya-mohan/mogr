@@ -7,10 +7,19 @@ import {
   type StylingIntent,
 } from "@/lib/wardrobe/interpreter";
 import { preFilter } from "@/lib/wardrobe/filter";
-import type { WardrobeItemRow } from "@/lib/wardrobe/content";
+import { callStylist } from "@/lib/wardrobe/stylist";
+import type { WardrobeItemRow, OutfitPiece, OutfitSlot, Outfit } from "@/lib/wardrobe/content";
+import type { Palette } from "@/lib/wardrobe/palette";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const SLOT_MAP: Record<string, OutfitSlot> = {
+  top: "top",
+  bottom: "bottom",
+  footwear: "footwear",
+  outerwear: "layer",
+};
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -22,6 +31,7 @@ export async function POST(req: Request) {
   const prompt: string           = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const mode: "closet_only" | "hybrid" =
     body.mode === "hybrid" ? "hybrid" : "closet_only";
+  const avoidItemIds: string[]   = Array.isArray(body.avoidItemIds) ? body.avoidItemIds : [];
 
   /* ── Stage 1: interpret the request ─────────────────────────── */
   let intent: StylingIntent;
@@ -32,14 +42,12 @@ export async function POST(req: Request) {
       temperature: 0,
     });
 
-    // Validate + correct the formalityBand against the target
     const target = raw.formalityTarget ?? "casual";
     const validBand = FORMALITY_BAND[target] ?? [target];
     const band = Array.isArray(raw.formalityBand)
       ? raw.formalityBand.filter((f: string) => validBand.includes(f))
       : validBand;
 
-    // Always include "all-season" in season
     const season = Array.isArray(raw.season) ? raw.season : ["all-season"];
     if (!season.includes("all-season")) season.push("all-season");
 
@@ -65,12 +73,55 @@ export async function POST(req: Request) {
     .select("id, category, name, color, image_url, data, created_at")
     .eq("user_id", user.id);
 
-  const { shortlist, gaps } = preFilter(
+  const { shortlist: rawShortlist, gaps } = preFilter(
     (rawItems ?? []) as WardrobeItemRow[],
     intent,
   );
 
-  /* ── Stage 3: stylist (TODO) ─────────────────────────────────── */
+  // Exclude items the user has already seen (try-again flow)
+  const avoidSet = new Set(avoidItemIds);
+  const shortlist = rawShortlist.filter(i => !avoidSet.has(i.id));
 
-  return NextResponse.json({ intent, shortlist, gaps });
+  /* ── Stage 3: stylist ────────────────────────────────────────── */
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("undertone, hair_tone, palette")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  let outfits: Outfit[] = [];
+  try {
+    const raw = await callStylist(
+      shortlist,
+      intent,
+      profile?.undertone ?? undefined,
+      (profile?.palette ?? null) as Palette | null,
+    );
+
+    // Enrich itemIds → OutfitPiece[] for the visual components
+    const itemMap = new Map(shortlist.map(i => [i.id, i]));
+    outfits = raw.map(o => ({
+      ...o,
+      pieces: o.itemIds
+        .map(id => {
+          const item = itemMap.get(id);
+          if (!item) return null;
+          const slot = SLOT_MAP[item.category ?? ""];
+          if (!slot) return null;
+          return {
+            name: item.name ?? item.data?.name ?? "item",
+            tint: item.data?.colors?.[0]?.hex ?? "#888888",
+            slot,
+          } satisfies OutfitPiece;
+        })
+        .filter((p): p is OutfitPiece => p !== null),
+    }));
+  } catch (e) {
+    return NextResponse.json(
+      { error: "stylist-failed", detail: String(e) },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ outfits, intent, gaps });
 }

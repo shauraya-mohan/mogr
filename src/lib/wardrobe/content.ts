@@ -200,10 +200,14 @@ export interface Outfit {
   title: string;
   occasion: string;
   pieces: OutfitPiece[];
+  /** Owned garment IDs — used to exclude already-shown items on "try again". */
+  itemIds: string[];
+  /** Garments the user doesn't own (hybrid mode only). */
+  outsideItems: string[];
   rationale: string;
-  colorLine: string;
+  colorRationale: string;
   fitNote: string;
-  gap: string | null;
+  gaps: string[];
 }
 
 export const OUTFITS: Outfit[] = [
@@ -216,11 +220,13 @@ export const OUTFITS: Outfit[] = [
       { name: "Tan suede boots", tint: "#B08D57", slot: "footwear" },
       { name: "Olive overshirt", tint: "#6B6B3A", slot: "layer" },
     ],
+    itemIds: [],
+    outsideItems: [],
     rationale:
       "Layered and easy, but considered. The overshirt does the talking so you don't have to. Throw it over the henley and leave it open.",
-    colorLine: "Earthy olive and off-white lean into your warm undertone.",
+    colorRationale: "Earthy olive and off-white lean into your warm undertone.",
     fitNote: "Keep the henley slim and the jeans straight, one clean line top to bottom.",
-    gap: null,
+    gaps: [],
   },
   {
     title: "Easy weekend",
@@ -231,11 +237,13 @@ export const OUTFITS: Outfit[] = [
       { name: "White sneakers", tint: "#EDEAE0", slot: "footwear" },
       { name: "Navy bomber", tint: "#27324E", slot: "layer" },
     ],
+    itemIds: [],
+    outsideItems: [],
     rationale:
       "The uniform that always works. Tonal up top, the bomber adds just enough structure for coffee-to-dinner.",
-    colorLine: "Warm neutrals with a navy anchor. Quiet, and firmly in your lane.",
+    colorRationale: "Warm neutrals with a navy anchor. Quiet, and firmly in your lane.",
     fitNote: "Cuff the chinos once to break over the sneaker.",
-    gap: null,
+    gaps: [],
   },
   {
     title: "Sharp for work",
@@ -246,11 +254,13 @@ export const OUTFITS: Outfit[] = [
       { name: "Black derbies", tint: "#1C1C1A", slot: "footwear" },
       { name: "Camel wool coat", tint: "#B08D57", slot: "layer" },
     ],
+    itemIds: [],
+    outsideItems: [],
     rationale:
       "Grown-up without a suit. The camel coat warms up the charcoal and reads intentional the second you walk in.",
-    colorLine: "Camel against charcoal is your highest-payoff pairing: warm over cool, low contrast.",
+    colorRationale: "Camel against charcoal is your highest-payoff pairing: warm over cool, low contrast.",
     fitNote: "Tuck the oxford; let the trousers just kiss the shoe.",
-    gap: "A knit tie in muted brown would sharpen this even further.",
+    gaps: ["A knit tie in muted brown would sharpen this even further."],
   },
 ];
 

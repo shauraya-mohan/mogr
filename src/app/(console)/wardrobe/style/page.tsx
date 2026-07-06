@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   OCCASIONS,
-  OUTFITS,
   STYLING_STATUS,
+  type Outfit,
 } from "@/lib/wardrobe/content";
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import OutfitCard from "@/components/wardrobe/OutfitCard";
@@ -31,8 +31,10 @@ export default function WardrobeStylePage() {
   const [prompt, setPrompt] = useState("");
   const [statusIdx, setStatusIdx] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // null = not yet fetched / being derived; DrawerPalette = ready
   const [palette, setPalette] = useState<DrawerPalette | null>(null);
+  const [outfits, setOutfits] = useState<Outfit[]>([]);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [avoidItemIds, setAvoidItemIds] = useState<string[]>([]);
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
@@ -44,7 +46,6 @@ export default function WardrobeStylePage() {
     setPalette(data);
   }
 
-  // Check whether the user has already answered the undertone quiz.
   useEffect(() => {
     const supabase = createClient();
     (async () => {
@@ -65,21 +66,55 @@ export default function WardrobeStylePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Styling loader: cycle the status lines, then reveal results.
-  // TODO(backend): the timeout stands in for the POST /api/wardrobe/analyze
-  // round-trip (refine occasion → stylist → 1–3 outfits from owned items).
-  useEffect(() => {
-    if (mode !== "styling") return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const handleStyleMe = useCallback(async (extraAvoidIds?: string[]) => {
+    const avoid = [...avoidItemIds, ...(extraAvoidIds ?? [])];
+    if (extraAvoidIds?.length) setAvoidItemIds(avoid);
+
+    setMode("styling");
+    setAnalyzeError(null);
     setStatusIdx(0);
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const step = reduced ? 350 : 1050;
+    const minWait = reduced ? 900 : 3400;
+
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (let i = 1; i < STYLING_STATUS.length; i++) {
       timers.push(setTimeout(() => setStatusIdx(i), step * i));
     }
-    timers.push(setTimeout(() => setMode("results"), reduced ? 900 : 3400));
-    return () => timers.forEach(clearTimeout);
-  }, [mode]);
+
+    try {
+      const [res] = await Promise.all([
+        fetch("/api/wardrobe/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chips: [occasion], prompt, mode: "closet_only", avoidItemIds: avoid }),
+        }).then(r => r.json()),
+        new Promise<void>(resolve => setTimeout(resolve, minWait)),
+      ]);
+
+      timers.forEach(clearTimeout);
+
+      if (Array.isArray(res.outfits) && res.outfits.length > 0) {
+        setOutfits(res.outfits);
+        setMode("results");
+      } else {
+        setAnalyzeError(res.error === "stylist-failed"
+          ? "Couldn't build looks. Try a different occasion."
+          : "No items in your closet match that occasion yet.");
+        setMode("input");
+      }
+    } catch {
+      timers.forEach(clearTimeout);
+      setAnalyzeError("Something went wrong. Try again.");
+      setMode("input");
+    }
+  }, [avoidItemIds, occasion, prompt]);
+
+  const handleTryAgain = useCallback(() => {
+    const shownIds = outfits.flatMap(o => o.itemIds);
+    handleStyleMe(shownIds);
+  }, [outfits, handleStyleMe]);
 
   const resultsTitle = occasion === "Casual" ? "Understated" : occasion;
 
@@ -105,6 +140,12 @@ export default function WardrobeStylePage() {
           <h1 className="page-title rise" data-rise-delay="0.05">
             What&apos;s the occasion<span className="dot">.</span>
           </h1>
+
+          {analyzeError && (
+            <p className="style-error rise" data-rise-delay="0.08" role="alert">
+              {analyzeError}
+            </p>
+          )}
 
           <div className="occasion-chips rise" data-rise-delay="0.1" role="listbox" aria-label="Occasion">
             {OCCASIONS.map((o) => (
@@ -134,7 +175,7 @@ export default function WardrobeStylePage() {
             <button
               className="btn btn-lg btn-bronze"
               type="button"
-              onClick={() => setMode("styling")}
+              onClick={() => handleStyleMe()}
             >
               <svg className="btn__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3l1.9 4.8 4.8 1.9-4.8 1.9L12 16.4l-1.9-4.8L5.3 9.7l4.8-1.9z" />
@@ -199,8 +240,8 @@ export default function WardrobeStylePage() {
             </div>
           </div>
           <div className="outfit-list">
-            {OUTFITS.map((o) => (
-              <OutfitCard key={o.title} outfit={o} onTryAgain={() => setMode("styling")} />
+            {outfits.map((o) => (
+              <OutfitCard key={o.title} outfit={o} onTryAgain={handleTryAgain} />
             ))}
           </div>
         </section>

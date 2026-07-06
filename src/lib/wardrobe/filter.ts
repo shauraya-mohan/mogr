@@ -101,7 +101,7 @@ export function preFilter(
     // Hard filters
     if (!intent.formalityBand.includes(tags.formality)) continue;
     if (!overlaps(tags.occasions ?? [], [intent.occasion, "everyday"])) continue;
-    if (!overlaps([...(tags.season ?? []), "all-season"], targetSeasons)) continue;
+    if (!overlaps(tags.season ?? [], targetSeasons)) continue;
     if (violatesConstraints(tags, intent.constraints)) continue;
 
     candidates.push({ ...item, _score: scoreItem(tags, intent) });
