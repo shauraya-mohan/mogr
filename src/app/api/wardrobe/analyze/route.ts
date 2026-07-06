@@ -6,6 +6,8 @@ import {
   FORMALITY_BAND,
   type StylingIntent,
 } from "@/lib/wardrobe/interpreter";
+import { preFilter } from "@/lib/wardrobe/filter";
+import type { WardrobeItemRow } from "@/lib/wardrobe/content";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -57,8 +59,18 @@ export async function POST(req: Request) {
     );
   }
 
-  /* ── Stage 2: pre-filter wardrobe (TODO) ─────────────────────── */
+  /* ── Stage 2: pre-filter wardrobe ───────────────────────────── */
+  const { data: rawItems } = await supabase
+    .from("wardrobe_items")
+    .select("id, category, name, color, image_url, data, created_at")
+    .eq("user_id", user.id);
+
+  const { shortlist, gaps } = preFilter(
+    (rawItems ?? []) as WardrobeItemRow[],
+    intent,
+  );
+
   /* ── Stage 3: stylist (TODO) ─────────────────────────────────── */
 
-  return NextResponse.json({ intent });
+  return NextResponse.json({ intent, shortlist, gaps });
 }
