@@ -100,10 +100,35 @@ export async function POST(req: Request) {
 
     // Enrich itemIds → OutfitPiece[] for the visual components
     const itemMap = new Map(shortlist.map(i => [i.id, i]));
+
+    // Collect all unique storage paths that need signed URLs
+    const BUCKET = "user-media";
+    const SIGNED_TTL = 60 * 60; // 1h
+    const pathsToSign = new Set<string>();
+    for (const o of raw) {
+      for (const id of o.itemIds) {
+        const item = itemMap.get(id);
+        if (item?.image_url) pathsToSign.add(item.image_url);
+      }
+    }
+    // Batch-sign all cutout paths
+    const signedMap = new Map<string, string>();
+    if (pathsToSign.size > 0) {
+      const { data: signedResults } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrls([...pathsToSign], SIGNED_TTL);
+      if (signedResults) {
+        const pathArr = [...pathsToSign];
+        signedResults.forEach((r, i) => {
+          if (r.signedUrl) signedMap.set(pathArr[i], r.signedUrl);
+        });
+      }
+    }
+
     outfits = raw.map(o => ({
       ...o,
       pieces: o.itemIds
-        .map(id => {
+        .map((id): OutfitPiece | null => {
           const item = itemMap.get(id);
           if (!item) return null;
           const slot = SLOT_MAP[item.category ?? ""];
@@ -112,7 +137,8 @@ export async function POST(req: Request) {
             name: item.name ?? item.data?.name ?? "item",
             tint: item.data?.colors?.[0]?.hex ?? "#888888",
             slot,
-          } satisfies OutfitPiece;
+            cutoutUrl: item.image_url ? (signedMap.get(item.image_url) ?? null) : null,
+          };
         })
         .filter((p): p is OutfitPiece => p !== null),
     }));

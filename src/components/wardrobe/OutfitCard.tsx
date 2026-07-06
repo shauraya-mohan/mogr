@@ -9,10 +9,8 @@ type View = "flat" | "mannequin";
 
 export default function OutfitCard({
   outfit,
-  onTryAgain,
 }: {
   outfit: Outfit;
-  onTryAgain: () => void;
 }) {
   const [view, setView] = useState<View>("flat");
   const [saved, setSaved] = useState(false);
@@ -102,11 +100,9 @@ export default function OutfitCard({
               </>
             )}
           </button>
-          <button type="button" className="text-link" onClick={onTryAgain}>
-            try again
-          </button>
         </div>
       </div>
     </article>
   );
 }
+

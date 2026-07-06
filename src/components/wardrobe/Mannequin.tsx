@@ -10,11 +10,42 @@ function pick(
 }
 
 /**
- * Mannequin preview — a placeholder figure built from the outfit's own colours
- * (torso = top, side panels = layer, legs = bottom, feet = footwear).
- * TODO(backend) IMAGE SLOT: swap for the rendered preview if/when added.
+ * Mannequin preview — when pieces have cutoutUrls, renders stacked cutout
+ * images layered in the correct order (bottom → top → layer → footwear).
+ * Falls back to the SVG colour figure when no images are available.
  */
 export default function Mannequin({ pieces }: { pieces: OutfitPiece[] }) {
+  const hasCutouts = pieces.some((p) => p.cutoutUrl);
+
+  if (hasCutouts) {
+    /* Order: bottom layer renders first (behind), top items in front. */
+    const order: OutfitSlot[] = ["footwear", "bottom", "top", "layer"];
+    const sorted = [...pieces].sort(
+      (a, b) => order.indexOf(a.slot) - order.indexOf(b.slot)
+    );
+
+    return (
+      <div className="mannequin mannequin--real">
+        {sorted.map((p, i) =>
+          p.cutoutUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              key={i}
+              src={p.cutoutUrl}
+              alt={p.name}
+              className="mannequin__piece"
+              loading="lazy"
+              draggable={false}
+              style={{ zIndex: i + 1 }}
+            />
+          ) : null
+        )}
+        <span className="mannequin__label">on you</span>
+      </div>
+    );
+  }
+
+  /* Fallback: SVG colour figure */
   const top = pick(pieces, "top", "#8E897D")!;
   const layer = pick(pieces, "layer", null);
   const bottom = pick(pieces, "bottom", "#5A554B")!;

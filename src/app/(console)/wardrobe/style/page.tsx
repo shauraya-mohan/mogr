@@ -303,6 +303,17 @@ export default function WardrobeStylePage() {
             </div>
             <div className="results-head__actions">
               <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={handleTryAgain}
+              >
+                <svg className="btn__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M1 4v6h6" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+                Try again
+              </button>
+              <button
                 className="colours-trigger"
                 type="button"
                 aria-label="View your colours"
@@ -317,7 +328,7 @@ export default function WardrobeStylePage() {
           </div>
           <div className="outfit-list">
             {outfits.map((o) => (
-              <OutfitCard key={o.title} outfit={o} onTryAgain={handleTryAgain} />
+              <OutfitCard key={o.title} outfit={o} />
             ))}
           </div>
         </section>

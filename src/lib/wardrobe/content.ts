@@ -194,6 +194,8 @@ export interface OutfitPiece {
   name: string;
   tint: string;
   slot: OutfitSlot;
+  /** Signed URL to the Photoroom ghost-mannequin cutout (transparent PNG). */
+  cutoutUrl?: string | null;
 }
 
 export interface Outfit {
