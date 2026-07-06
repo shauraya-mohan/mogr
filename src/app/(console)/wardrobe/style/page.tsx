@@ -234,7 +234,7 @@ export default function WardrobeStylePage() {
               >
                 <PaletteIcon />
               </button>
-              <button className="text-link" type="button" onClick={() => setMode("input")}>
+              <button className="text-link" type="button" onClick={() => { setMode("input"); setAvoidItemIds([]); }}>
                 change occasion
               </button>
             </div>

@@ -438,6 +438,7 @@
 .prompt-field:focus { outline: none; border-color: var(--bronze); }
 .style-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
 .style-helper { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--stone); margin: 18px 0 0; }
+.style-error { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--brick, #8B3A2F); margin: 0 0 8px; }
 
 /* styling loader */
 .styling-state { padding: clamp(40px, 8vh, 90px) 0; text-align: center; }
