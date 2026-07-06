@@ -39,7 +39,6 @@ export async function POST(req: Request) {
     const raw = await chatJSON<Omit<StylingIntent, "mode">>({
       system: INTERPRETER_SYSTEM,
       user: JSON.stringify({ chips, prompt }),
-      temperature: 0,
     });
 
     const target = raw.formalityTarget ?? "casual";
@@ -61,6 +60,7 @@ export async function POST(req: Request) {
       mode,
     };
   } catch (e) {
+    console.error("[analyze] Stage 1 interpret-failed:", e);
     return NextResponse.json(
       { error: "interpret-failed", detail: String(e) },
       { status: 502 },
@@ -117,6 +117,7 @@ export async function POST(req: Request) {
         .filter((p): p is OutfitPiece => p !== null),
     }));
   } catch (e) {
+    console.error("[analyze] Stage 3 stylist-failed:", e);
     return NextResponse.json(
       { error: "stylist-failed", detail: String(e) },
       { status: 502 },

@@ -105,7 +105,6 @@ export async function callStylist(
       },
       shortlist: items,
     }),
-    temperature: 0.3,
   });
 
   const validIds = new Set(shortlist.map(i => i.id));
