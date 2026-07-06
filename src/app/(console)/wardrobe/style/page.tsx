@@ -14,6 +14,52 @@ import { createClient } from "@/lib/supabase/client";
 
 type Mode = "loading" | "quiz" | "input" | "styling" | "results";
 
+/* ── occasion chip icons ─────────────────────────────────────── */
+const OCCASION_ICONS: Record<string, React.ReactNode> = {
+  "Casual": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9h10v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z"/>
+      <path d="M16 12h1.5a2 2 0 0 1 0 4H16"/>
+      <path d="M9.5 6c0-1.5 2-1.5 2-3M12.5 6c0-1.5 2-1.5 2-3"/>
+    </svg>
+  ),
+  "Work": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="8" width="20" height="13" rx="2"/>
+      <path d="M16 8V6a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      <path d="M2 13h20"/>
+    </svg>
+  ),
+  "Smart casual": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3L3 7l2 1.5V20h14V8.5L21 7l-3-4"/>
+      <path d="M9 3c0 2.5 1.2 3.5 3 3.5s3-1 3-3.5"/>
+    </svg>
+  ),
+  "Going out": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 4h16L12 14 4 4z"/>
+      <line x1="12" y1="14" x2="12" y2="20"/>
+      <line x1="8" y1="20" x2="16" y2="20"/>
+    </svg>
+  ),
+  "Date": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  ),
+  "Formal": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2l2.4 7.4L22 12l-7.6 2.6L12 22l-2.4-7.4L2 12l7.6-2.6z"/>
+    </svg>
+  ),
+  "Athletic": (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M13 2L4 14h8l-1 8 9-12h-8z"/>
+    </svg>
+  ),
+};
+
 function PaletteIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -137,7 +183,7 @@ export default function WardrobeStylePage() {
       {/* ===== Occasion input ===== */}
       {mode === "input" && (
         <section className="style-hero">
-          <p className="eyebrow rise">style me</p>
+          <p className="eyebrow style-eyebrow rise">style me</p>
           <h1 className="page-title rise" data-rise-delay="0.05">
             What&apos;s the occasion<span className="dot">.</span>
           </h1>
@@ -158,6 +204,7 @@ export default function WardrobeStylePage() {
                 aria-selected={occasion === o}
                 onClick={() => setOccasion(o)}
               >
+                {OCCASION_ICONS[o]}
                 {o}
               </button>
             ))}
@@ -172,26 +219,37 @@ export default function WardrobeStylePage() {
             placeholder="…or describe it: 'dinner date, cooler evening, keep it understated'"
           />
 
-          <div className="mode-toggle rise" data-rise-delay="0.13" role="group" aria-label="Source">
+          {/* ── Mode selector ── */}
+          <div className="mode-selector rise" data-rise-delay="0.13" role="group" aria-label="Outfit source">
             <button
               type="button"
-              className={`mode-btn${!hybridMode ? " is-active" : ""}`}
+              className={`mode-option${!hybridMode ? " is-active" : ""}`}
               onClick={() => setHybridMode(false)}
             >
-              My closet
+              <svg className="mode-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2" y="3" width="6" height="8" rx="1.5"/>
+                <rect x="10" y="3" width="6" height="8" rx="1.5"/>
+                <rect x="18" y="3" width="4" height="8" rx="1.5"/>
+                <rect x="2" y="13" width="20" height="8" rx="1.5"/>
+              </svg>
+              <span>My closet only</span>
             </button>
             <button
               type="button"
-              className={`mode-btn${hybridMode ? " is-active" : ""}`}
+              className={`mode-option${hybridMode ? " is-active" : ""}`}
               onClick={() => setHybridMode(true)}
             >
-              Open to suggestions
+              <svg className="mode-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="currentColor" stroke="none"/>
+              </svg>
+              <span>Open to suggestions</span>
             </button>
           </div>
 
           <div className="style-actions rise" data-rise-delay="0.15">
             <button
-              className="btn btn-lg btn-bronze"
+              className="btn btn-lg btn-bronze style-cta"
               type="button"
               onClick={() => handleStyleMe()}
             >
@@ -211,7 +269,7 @@ export default function WardrobeStylePage() {
             </button>
           </div>
           <p className="style-helper rise" data-rise-delay="0.18">
-            We&apos;ll build looks from your closet, matched to your colouring.
+            Looks built from your closet, matched to your colouring.
           </p>
         </section>
       )}
@@ -237,7 +295,7 @@ export default function WardrobeStylePage() {
         <section className="results">
           <div className="results-head">
             <div>
-              <p className="eyebrow">your looks</p>
+              <p className="eyebrow style-eyebrow">your looks</p>
               <h2 className="page-title" style={{ fontSize: "clamp(30px,4vw,44px)" }}>
                 {resultsTitle}
                 <span className="dot">.</span>

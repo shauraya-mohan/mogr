@@ -426,7 +426,14 @@
    ============================================================ */
 .style-layout { display: block; }
 .style-hero { margin-bottom: clamp(28px, 5vh, 44px); }
+
+/* Bronze eyebrow on style + results headings */
+.style-eyebrow { color: var(--bronze) !important; letter-spacing: 0.14em; }
+
+/* Occasion chips — bronze hover accent */
 .occasion-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0; }
+.occasion-chips .chip:hover { border-color: var(--bronze); color: var(--ink); }
+
 .prompt-field {
   width: 100%;
   font-family: var(--font-body); font-size: 16px; color: var(--ink);
@@ -436,21 +443,59 @@
 }
 .prompt-field::placeholder { color: var(--stone); }
 .prompt-field:focus { outline: none; border-color: var(--bronze); }
-.mode-toggle {
-  display: inline-flex; gap: 3px; align-self: flex-start;
-  background: var(--cloud); border: 1px solid var(--ink-12);
-  border-radius: 10px; padding: 3px; margin: 20px 0 0;
+
+/* ── Mode selector — stacked two-option card ── */
+.mode-selector {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--ink-12);
+  border-radius: 12px; overflow: hidden;
+  margin: 20px 0 0;
+  max-width: 400px;
 }
-.mode-btn {
-  padding: 0 16px; height: 34px; border-radius: 8px;
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--graphite); white-space: nowrap;
-  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+.mode-option {
+  display: flex; align-items: center; gap: 11px;
+  padding: 13px 16px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--stone);
+  border-bottom: 1px solid var(--ink-08);
+  /* inset left-bar via box-shadow — avoids border-layout conflicts */
+  box-shadow: inset 3px 0 0 transparent;
+  transition: color 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease);
 }
-.mode-btn.is-active { background: var(--ink); color: var(--bone); }
-[data-theme="dark"] .mode-btn.is-active { background: var(--bone); color: var(--ink); }
-.style-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
-.style-helper { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--stone); margin: 18px 0 0; }
+.mode-option:last-child { border-bottom: none; }
+.mode-option:hover { color: var(--graphite); }
+.mode-option.is-active {
+  color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--bronze);
+  background: rgba(176,141,87,0.07);
+}
+.mode-ic { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.55; transition: opacity 0.2s; }
+.mode-option.is-active .mode-ic { opacity: 1; color: var(--bronze); }
+
+/* ── Style-me CTA ── */
+.style-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 22px; }
+.btn.style-cta {
+  background: linear-gradient(135deg, var(--bronze) 0%, #BF8B30 100%);
+  box-shadow: 0 0 0 1px rgba(176,141,87,0.28), 0 4px 20px rgba(176,141,87,0.18);
+  transition: box-shadow 0.3s var(--ease), transform 0.25s var(--ease), background 0.3s var(--ease);
+}
+.btn.style-cta:hover {
+  background: linear-gradient(135deg, #C9933A 0%, var(--bronze) 100%);
+  box-shadow: 0 0 0 1px rgba(176,141,87,0.45), 0 6px 28px rgba(176,141,87,0.28);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn.style-cta:hover .btn__ic {
+    animation: sparkle-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+  @keyframes sparkle-pop {
+    0%   { transform: scale(1)    rotate(0deg);  }
+    55%  { transform: scale(1.3)  rotate(18deg); }
+    100% { transform: scale(1)    rotate(0deg);  }
+  }
+}
+
+.style-helper { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--stone); margin: 16px 0 0; }
 .style-error { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--brick, #8B3A2F); margin: 0 0 8px; }
 
 /* styling loader */
