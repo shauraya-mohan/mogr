@@ -33,6 +33,26 @@ function overlaps(a: string[], b: string[]): boolean {
 }
 
 /**
+ * Returns true if the item's occasion tags make it incompatible with the intent.
+ * Uses exclusion logic rather than inclusion — most items should pass unless they
+ * are exclusively tagged for a clearly incompatible context.
+ */
+function conflictsOccasion(tags: GarmentTags, intent: StylingIntent): boolean {
+  const occ = tags.occasions ?? [];
+  if (occ.length === 0) return false;   // no tag = no restriction
+
+  if (intent.occasion === "active") {
+    // For active requests, only accept items that include "active"
+    return !occ.includes("active");
+  }
+  // For all non-active occasions:
+  // Exclude items that are exclusively tagged for a conflicting context
+  if (occ.every(o => o === "active")) return true;
+  if (intent.occasion !== "formal event" && occ.every(o => o === "formal event")) return true;
+  return false;
+}
+
+/**
  * Returns true if the item's subtype is explicitly excluded by a constraint.
  * Only matches "no <thing>" patterns against the item subtype — colour/weather
  * constraints are left to the stylist.
@@ -100,7 +120,7 @@ export function preFilter(
 
     // Hard filters
     if (!intent.formalityBand.includes(tags.formality)) continue;
-    if (!overlaps(tags.occasions ?? [], [intent.occasion, "everyday"])) continue;
+    if (conflictsOccasion(tags, intent)) continue;
     if (!overlaps(tags.season ?? [], targetSeasons)) continue;
     if (violatesConstraints(tags, intent.constraints)) continue;
 

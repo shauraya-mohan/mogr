@@ -436,6 +436,19 @@
 }
 .prompt-field::placeholder { color: var(--stone); }
 .prompt-field:focus { outline: none; border-color: var(--bronze); }
+.mode-toggle {
+  display: inline-flex; gap: 3px; align-self: flex-start;
+  background: var(--cloud); border: 1px solid var(--ink-12);
+  border-radius: 10px; padding: 3px; margin: 20px 0 0;
+}
+.mode-btn {
+  padding: 0 16px; height: 34px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--graphite); white-space: nowrap;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.mode-btn.is-active { background: var(--ink); color: var(--bone); }
+[data-theme="dark"] .mode-btn.is-active { background: var(--bone); color: var(--ink); }
 .style-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
 .style-helper { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--stone); margin: 18px 0 0; }
 .style-error { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--brick, #8B3A2F); margin: 0 0 8px; }

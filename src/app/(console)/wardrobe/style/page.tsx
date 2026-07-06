@@ -35,6 +35,7 @@ export default function WardrobeStylePage() {
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [avoidItemIds, setAvoidItemIds] = useState<string[]>([]);
+  const [hybridMode, setHybridMode] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
@@ -88,7 +89,7 @@ export default function WardrobeStylePage() {
         fetch("/api/wardrobe/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chips: [occasion], prompt, mode: "closet_only", avoidItemIds: avoid }),
+          body: JSON.stringify({ chips: [occasion], prompt, mode: hybridMode ? "hybrid" : "closet_only", avoidItemIds: avoid }),
         }).then(r => r.json()),
         new Promise<void>(resolve => setTimeout(resolve, minWait)),
       ]);
@@ -109,7 +110,7 @@ export default function WardrobeStylePage() {
       setAnalyzeError("Something went wrong. Try again.");
       setMode("input");
     }
-  }, [avoidItemIds, occasion, prompt]);
+  }, [avoidItemIds, occasion, prompt, hybridMode]);
 
   const handleTryAgain = useCallback(() => {
     const shownIds = outfits.flatMap(o => o.itemIds);
@@ -170,6 +171,23 @@ export default function WardrobeStylePage() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="…or describe it: 'dinner date, cooler evening, keep it understated'"
           />
+
+          <div className="mode-toggle rise" data-rise-delay="0.13" role="group" aria-label="Source">
+            <button
+              type="button"
+              className={`mode-btn${!hybridMode ? " is-active" : ""}`}
+              onClick={() => setHybridMode(false)}
+            >
+              My closet
+            </button>
+            <button
+              type="button"
+              className={`mode-btn${hybridMode ? " is-active" : ""}`}
+              onClick={() => setHybridMode(true)}
+            >
+              Open to suggestions
+            </button>
+          </div>
 
           <div className="style-actions rise" data-rise-delay="0.15">
             <button
