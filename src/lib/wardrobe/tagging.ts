@@ -11,10 +11,13 @@ import {
   CATEGORY_OPTIONS,
   FIT_OPTIONS,
   FORMALITY_OPTIONS,
+  LAYERING_ZONE_OPTIONS,
   OCCASION_OPTIONS,
   PATTERN_OPTIONS,
   SEASON_OPTIONS,
+  SLEEVE_LENGTH_OPTIONS,
   STYLE_OPTIONS,
+  WEATHER_OPTIONS,
 } from "./content";
 
 const list = (xs: readonly string[]) => xs.join(", ");
@@ -44,7 +47,14 @@ Return STRICT JSON only — no prose, no markdown — matching this exact shape:
   "season": [ string ],          // 1–3 from [${list(SEASON_OPTIONS)}]
   "occasions": [ string ],       // 1–3 from [${list(OCCASION_OPTIONS)}]
   "details": [ string ],         // notable features: "hood","full zip","chest pocket","ribbed cuffs","button placket","distressing","embroidered logo"; [] if none
-  "notes": string                // ONE short, neutral styling note (how it reads / what it pairs with). No scores, no ratings, no hype.
+  "notes": string,               // ONE short, neutral styling note (how it reads / what it pairs with). No scores, no ratings, no hype.
+
+  "formalityScore": number,      // 1-10, MUST agree with "formality" above on the same rubric (see below)
+  "weatherCompatibility": [ string ],  // 1-3 from [${list(WEATHER_OPTIONS)}] — conditions this piece suits
+  "sleeveLength": one of [${list(SLEEVE_LENGTH_OPTIONS)}],   // "n/a" for bottoms/footwear/accessories
+  "layeringZone": one of [${list(LAYERING_ZONE_OPTIONS)}],
+  "clashColors": [ string ],     // 0-3 colour families that clash with this piece; [] if easygoing
+  "requiresTuck": boolean        // true for dress shirts / tucked-silhouette tops, false for tees/overshirts/non-tops
 }
 
 RULES — follow every one:
@@ -54,12 +64,22 @@ RULES — follow every one:
   secondary/trim colour only if clearly present. Don't report the transparent
   background or any watermark as a colour.
 - Use the allowed values EXACTLY as written for enum fields. For "style" pick the
-  1–2 aesthetics that fit best (e.g. minimalist, streetwear, workwear).
+  1–3 aesthetics that fit best (e.g. minimalist, streetwear, y2k, workwear) —
+  be specific, this drives outfit matching directly.
 - ABSTAIN, don't guess: if you genuinely can't tell a field, use "unclear" (text
   enums), null (print), or [] (arrays). It is correct to abstain on fit when the
   garment is shown flat with no silhouette.
 - Judge FIT from the silhouette/proportions when visible (slim, relaxed,
   oversized, tailored…). FORMALITY from the garment's dress code, not the colour.
+- FORMALITY RUBRIC — "formality" and "formalityScore" must land in the SAME band:
+  1–2 loungewear/athletic · 3–4 casual (tee, hoodie, shorts, sneakers) · 5–6 smart
+  casual (polo, chinos, clean denim, camp-collar) · 7–8 business casual/dressy
+  (dress shirt, tailored trousers, loafers, blazer) · 9–10 formal (suit, tuxedo,
+  dress shoes). Pick the numeric score first, then the label matching its band.
+- WEATHER: a tank top → ["hot"]; a puffer → ["cold","rain"]; a cotton tee →
+  ["hot","mild"]. Abstain to ["mild"] if genuinely unsure.
+- SLEEVE LENGTH / LAYERING ZONE / TUCK: judge from what's visible; "n/a" sleeve
+  length for anything that isn't a top or outerwear.
 - "isGarment": set false for anything that isn't wearable apparel/footwear/an
   accessory (a face, a room, food, a random object). When false, still return the
   object but you may leave other fields at "unclear"/[]/null.

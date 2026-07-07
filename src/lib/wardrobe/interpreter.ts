@@ -1,85 +1,79 @@
 /**
  * Stage 1 — request interpreter.
- * Converts occasion chips + free-text prompt → StylingIntent.
- * The intent drives Stage 2 (deterministic filter) and Stage 3 (stylist).
+ * Converts occasion chips + season + free-text prompt → StylingIntent.
+ * The intent drives Stage 2 (soft-scoring filter) and Stage 3 (stylist).
  */
+import type { StyleSeason } from "./content";
 
 export interface StylingIntent {
-  occasion:        string;      // one of the OCCASIONS enum below
-  formalityTarget: string;      // one of the FORMALITY enum below
-  formalityBand:   string[];    // target + sensible neighbours
-  season:          string[];    // always includes "all-season"
-  vibe:            string[];    // zero or more descriptive tags
-  constraints:     string[];    // only explicit user limits
-  mode:            "closet_only" | "hybrid";   // from UI, not the model
+  occasion: string;                 // one of INTENT_OCCASIONS, best-fit
+  formalityTargetScore: number;     // 1–10 target for THIS event — a lean, never a gate
+  aesthetic: string[];              // themes implied: y2k, streetwear, old-money/preppy, minimal… ([] if none)
+  weather: "hot" | "mild" | "cold" | "rain" | "unspecified";
+  vibe: string[];                   // free descriptors
+  dressCodeNotes: string;           // 1 sentence: what the event actually calls for
+  constraints: string[];            // explicit limits only
+  mode: "closet_only" | "hybrid";   // from UI, not the model
 }
 
-/* ── valid value sets (used for prompt construction + validation) ── */
 export const INTENT_OCCASIONS = [
   "everyday", "work", "going out", "date",
   "formal event", "active", "lounge", "outdoor",
 ] as const;
 
-export const INTENT_FORMALITIES = [
-  "casual", "smart casual", "business casual", "formal", "athletic",
-] as const;
-
-export const INTENT_SEASONS = [
-  "spring", "summer", "autumn", "winter", "all-season",
-] as const;
-
-/**
- * Allowed formalityBand for each formalityTarget.
- * Used to validate / correct the model's output in the route.
- */
-export const FORMALITY_BAND: Record<string, string[]> = {
-  athletic:          ["athletic"],
-  casual:            ["casual", "smart casual"],
-  "smart casual":    ["casual", "smart casual", "business casual"],
-  "business casual": ["smart casual", "business casual", "formal"],
-  formal:            ["business casual", "formal"],
+/** Season → weather baseline. The model may override this from prompt text (e.g. "poolside" in winter). */
+export const SEASON_WEATHER_BASELINE: Record<StyleSeason, "hot" | "mild" | "cold"> = {
+  spring: "mild",
+  summer: "hot",
+  autumn: "mild",
+  winter: "cold",
 };
 
 /* ── system prompt ─────────────────────────────────────────────── */
 export const INTERPRETER_SYSTEM = `\
 ROLE
-You convert a men's outfit request into a structured styling intent for a wardrobe
-recommender. Be decisive and reasonable.
+Convert a men's outfit request into a structured styling intent. You understand real
+dress codes, aesthetic subcultures, and how weather changes an outfit. Be decisive.
 
-INPUT (user message)
-- chips: zero or more preset occasion tags selected by the user.
-- prompt: free text (may be empty), e.g. "dinner date, cooler evening, keep it understated".
+INPUT
+- chips: preset occasion labels (may be empty).
+- season: the user's selected season (spring/summer/autumn/winter) — your weather
+  baseline (spring/autumn→mild, summer→hot, winter→cold).
+- prompt: free text (may be empty), e.g. "frat party, y2k" or "cafe to WFH but I've got meetings, look sharp".
 
-NOTE ON CHIPS: chips use display labels like "Casual", "Smart casual", "Going out",
-"Date", "Formal", "Athletic". Map them to the occasion/formality enum values below.
-"Casual" → occasion "everyday", "Smart casual" is a formality signal not an occasion
-(infer a fitting occasion), "Formal" → "formal event", "Athletic" → "active".
-
-TASK
-Infer: occasion, formalityTarget, an adjacent formalityBand, season, vibe, and any
-hard constraints. If something isn't stated, infer a sensible default from the
-occasion; when unsure, widen the formalityBand rather than guessing narrowly.
-
-RULES
+TASK — infer:
 - occasion ∈ {${INTENT_OCCASIONS.join(", ")}}.
-- formalityTarget ∈ {${INTENT_FORMALITIES.join(", ")}}.
-- formalityBand: the target plus sensible adjacent bands
-  (casual↔smart casual↔business casual↔formal are neighbours; athletic stands alone).
-  Exclude clearly-wrong bands.
-- season ∈ {${INTENT_SEASONS.join(", ")}}; always include "all-season".
-- vibe: 0–3 short descriptors implied by the request, e.g. "understated", "layered",
-  "relaxed". Leave [] if nothing is implied.
-- constraints: capture explicit limits ONLY — e.g. "no bright colours", "no shorts",
-  weather like "cooler evening". Do NOT invent constraints.
-- Do not add detail the user didn't imply beyond reasonable defaults.
+- formalityTargetScore (1–10): how dressed-up the EVENT is, using this rubric —
+  1–2 lounge/athletic · 3–4 casual · 5–6 smart casual · 7–8 business casual/dressy · 9–10 formal.
+- aesthetic: any style themes implied (y2k, streetwear, preppy/old-money, minimal, grunge,
+  techwear, gorpcore…). [] if none implied.
+- weather: hot | mild | cold | rain | unspecified. Start from the season baseline given
+  above, and adjust ONLY if the prompt clearly implies otherwise (e.g. "poolside" stays
+  hot regardless of season if it reads as a resort/indoor-pool context; "rainy" → rain).
+  Don't let a single ambiguous word override a clear season baseline — this is a soft
+  hint for the stylist, not a hard rule, so default to the season baseline when unsure.
+- vibe: 0–3 free descriptors (understated, playful, sharp…).
+- dressCodeNotes: ONE sentence stating what the event actually calls for and any nuance —
+  e.g. "Elevated smart-casual: sharp but not stuffy; polos and clean trousers work."
+- constraints: explicit limits ONLY ("no shorts", "no bright colours"). Do not invent.
+  Do NOT put weather/temperature phrases here — that's the separate "weather" field.
 
-OUTPUT
-Strict JSON only — no prose, no markdown — matching this exact shape:
+DRESS-CODE INTELLIGENCE (apply this reasoning):
+- "poolside / beach (not swimming)" → hot, score ~3–4, expect shorts + short sleeves + relaxed.
+- "frat party" / "y2k" / "rave" → casual (3–4), aesthetic tags set, statement/printed pieces welcome — not safe minimal basics.
+- "pub / bar for drinks, not exclusive" → smart casual (~5), NOT formal.
+- "fancy restaurant / rooftop / formal date" → dressy (~7–8); note in dressCodeNotes that the
+  stylist should ELEVATE what the user owns if he lacks true formalwear.
+- "cafe / co-working but meetings, look sharp" → smart casual sharp (~6); polos & knit polos are
+  ideal; note that sleeveless/graphic/athletic are NOT appropriate.
+
+OUTPUT — strict JSON only, matching the StylingIntent shape (no mode). No prose, no markdown.
 {
-  "occasion":        "date",
-  "formalityTarget": "smart casual",
-  "formalityBand":   ["casual", "smart casual", "business casual"],
-  "season":          ["autumn", "all-season"],
-  "vibe":            ["understated", "layered"],
-  "constraints":     ["cooler weather"]
+  "occasion": "date",
+  "formalityTargetScore": 6,
+  "aesthetic": ["preppy"],
+  "weather": "mild",
+  "vibe": ["understated", "sharp"],
+  "dressCodeNotes": "Smart casual date-night: put-together but not stiff.",
+  "constraints": []
 }`;

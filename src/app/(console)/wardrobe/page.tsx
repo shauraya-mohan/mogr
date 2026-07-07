@@ -38,6 +38,12 @@ function toTags(item: Item): GarmentTags {
       occasions: [],
       details: [],
       notes: "",
+      formalityScore: 5,
+      weatherCompatibility: [],
+      sleeveLength: "n/a",
+      layeringZone: "base",
+      clashColors: [],
+      requiresTuck: false,
     }
   );
 }

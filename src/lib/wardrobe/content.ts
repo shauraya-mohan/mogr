@@ -46,6 +46,19 @@ export interface GarmentTags {
   details: string[];
   /** One short, neutral styling note. No scores. */
   notes: string;
+
+  /** Formality axis, 1 (loungewear/athletic) → 10 (black-tie). Used for soft scoring; `formality` above stays the display label. */
+  formalityScore: number;
+  /** Conditions the piece suits. Soft signal for scoring, never a gate. */
+  weatherCompatibility: WeatherTag[];
+  /** For appropriateness guardrails (e.g. sleeveless never for work/formal). "n/a" for bottoms/footwear/accessories. */
+  sleeveLength: "sleeveless" | "short" | "long" | "n/a";
+  /** For layering logic (base under mid under outer). */
+  layeringZone: "base" | "mid" | "outer" | "bottom" | "footwear" | "accessory";
+  /** Colour families this piece clashes with. */
+  clashColors: string[];
+  /** True if the garment reads best tucked. */
+  requiresTuck: boolean;
 }
 
 /** A wardrobe_items row as read on the client (data holds GarmentTags). */
@@ -139,8 +152,26 @@ export const OCCASION_OPTIONS = [
   "outdoor",
 ] as const;
 
+export type WeatherTag = "hot" | "mild" | "cold" | "rain";
+export const WEATHER_OPTIONS: WeatherTag[] = ["hot", "mild", "cold", "rain"];
+
+export const SLEEVE_LENGTH_OPTIONS = ["sleeveless", "short", "long", "n/a"] as const;
+
+export const LAYERING_ZONE_OPTIONS = [
+  "base",
+  "mid",
+  "outer",
+  "bottom",
+  "footwear",
+  "accessory",
+] as const;
+
+/** The 4-button season picker on the Style-me page — feeds the weather baseline. */
+export const STYLE_SEASON_OPTIONS = ["spring", "summer", "autumn", "winter"] as const;
+export type StyleSeason = (typeof STYLE_SEASON_OPTIONS)[number];
+
 /** Max garments a single bulk upload accepts. */
-export const BULK_LIMIT = 8;
+export const BULK_LIMIT = 30;
 
 /* ------------------------------------------------------------
    Inventory filter chips

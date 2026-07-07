@@ -5,7 +5,7 @@
 import "server-only";
 
 const KEY = process.env.OPENAI_API_KEY;
-const VISION_MODEL = process.env.OPENAI_VISION_MODEL || "gpt-5.1-chat-latest";
+const VISION_MODEL = process.env.OPENAI_VISION_MODEL || "gpt-5.5";
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
 function requireKey(): string {

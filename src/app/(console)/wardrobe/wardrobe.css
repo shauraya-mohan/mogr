@@ -434,6 +434,14 @@
 .occasion-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0; }
 .occasion-chips .chip:hover { border-color: var(--bronze); color: var(--ink); }
 
+/* Season chips — secondary control: bronze accent on select, not a full ink invert */
+.season-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 0; }
+.season-chips .chip.is-active {
+  background: rgba(176,141,87,0.1);
+  color: var(--bronze);
+  border-color: var(--bronze);
+}
+
 .prompt-field {
   width: 100%;
   font-family: var(--font-body); font-size: 16px; color: var(--ink);

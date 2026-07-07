@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   OCCASIONS,
   STYLING_STATUS,
+  STYLE_SEASON_OPTIONS,
   type Outfit,
+  type StyleSeason,
 } from "@/lib/wardrobe/content";
 import { useReveal } from "@/lib/wardrobe/useReveal";
 import OutfitCard from "@/components/wardrobe/OutfitCard";
@@ -60,6 +62,40 @@ const OCCASION_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
+const SEASON_ICONS: Record<StyleSeason, React.ReactNode> = {
+  spring: (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2c1.5 3 1.5 5 0 8-1.5-3-1.5-5 0-8zM12 22c1.5-3 1.5-5 0-8-1.5 3-1.5 5 0 8zM2 12c3-1.5 5-1.5 8 0-3 1.5-5 1.5-8 0zM22 12c-3-1.5-5-1.5-8 0 3 1.5 5 1.5 8 0z" />
+    </svg>
+  ),
+  summer: (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8" />
+    </svg>
+  ),
+  autumn: (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3c3 2 5 5 5 8.5A5 5 0 0 1 7 11.5C7 8 9 5 12 3z" />
+      <path d="M12 13v8" />
+    </svg>
+  ),
+  winter: (
+    <svg className="chip__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2v20M4.5 6.5l15 11M19.5 6.5l-15 11" />
+    </svg>
+  ),
+};
+
+function defaultSeason(): StyleSeason {
+  const month = new Date().getMonth(); // 0 = Jan
+  if (month <= 1 || month === 11) return "winter";
+  if (month <= 4) return "spring";
+  if (month <= 7) return "summer";
+  return "autumn";
+}
+
 function PaletteIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -80,8 +116,9 @@ export default function WardrobeStylePage() {
   const [palette, setPalette] = useState<DrawerPalette | null>(null);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [avoidItemIds, setAvoidItemIds] = useState<string[]>([]);
+  const [avoidOutfits, setAvoidOutfits] = useState<string[][]>([]);
   const [hybridMode, setHybridMode] = useState(false);
+  const [season, setSeason] = useState<StyleSeason>(defaultSeason);
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
@@ -113,9 +150,9 @@ export default function WardrobeStylePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleStyleMe = useCallback(async (extraAvoidIds?: string[]) => {
-    const avoid = [...avoidItemIds, ...(extraAvoidIds ?? [])];
-    if (extraAvoidIds?.length) setAvoidItemIds(avoid);
+  const handleStyleMe = useCallback(async (extraAvoid?: string[][]) => {
+    const avoid = [...avoidOutfits, ...(extraAvoid ?? [])];
+    if (extraAvoid?.length) setAvoidOutfits(avoid);
 
     setMode("styling");
     setAnalyzeError(null);
@@ -135,7 +172,7 @@ export default function WardrobeStylePage() {
         fetch("/api/wardrobe/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chips: [occasion], prompt, mode: hybridMode ? "hybrid" : "closet_only", avoidItemIds: avoid }),
+          body: JSON.stringify({ chips: [occasion], prompt, season, mode: hybridMode ? "hybrid" : "closet_only", avoidOutfits: avoid }),
         }).then(r => r.json()),
         new Promise<void>(resolve => setTimeout(resolve, minWait)),
       ]);
@@ -156,11 +193,11 @@ export default function WardrobeStylePage() {
       setAnalyzeError("Something went wrong. Try again.");
       setMode("input");
     }
-  }, [avoidItemIds, occasion, prompt, hybridMode]);
+  }, [avoidOutfits, occasion, prompt, season, hybridMode]);
 
   const handleTryAgain = useCallback(() => {
-    const shownIds = outfits.flatMap(o => o.itemIds);
-    handleStyleMe(shownIds);
+    const shownOutfits = outfits.map(o => o.itemIds);
+    handleStyleMe(shownOutfits);
   }, [outfits, handleStyleMe]);
 
   const resultsTitle = occasion === "Casual" ? "Understated" : occasion;
@@ -247,6 +284,23 @@ export default function WardrobeStylePage() {
             </button>
           </div>
 
+          {/* ── Season picker ── */}
+          <div className="season-chips rise" data-rise-delay="0.14" role="listbox" aria-label="Season">
+            {STYLE_SEASON_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`chip${season === s ? " is-active" : ""}`}
+                role="option"
+                aria-selected={season === s}
+                onClick={() => setSeason(s)}
+              >
+                {SEASON_ICONS[s]}
+                {s[0].toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+
           <div className="style-actions rise" data-rise-delay="0.15">
             <button
               className="btn btn-lg btn-bronze style-cta"
@@ -321,7 +375,7 @@ export default function WardrobeStylePage() {
               >
                 <PaletteIcon />
               </button>
-              <button className="text-link" type="button" onClick={() => { setMode("input"); setAvoidItemIds([]); }}>
+              <button className="text-link" type="button" onClick={() => { setMode("input"); setAvoidOutfits([]); }}>
                 change occasion
               </button>
             </div>

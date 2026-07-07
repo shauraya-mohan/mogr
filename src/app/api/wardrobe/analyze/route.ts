@@ -3,13 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { chatJSON } from "@/lib/openai";
 import {
   INTERPRETER_SYSTEM,
-  FORMALITY_BAND,
+  SEASON_WEATHER_BASELINE,
   type StylingIntent,
 } from "@/lib/wardrobe/interpreter";
-import { preFilter } from "@/lib/wardrobe/filter";
+import { selectCandidates } from "@/lib/wardrobe/filter";
 import { callStylist } from "@/lib/wardrobe/stylist";
-import type { WardrobeItemRow, OutfitPiece, OutfitSlot, Outfit } from "@/lib/wardrobe/content";
-import type { Palette } from "@/lib/wardrobe/palette";
+import type { WardrobeItemRow, OutfitPiece, OutfitSlot, Outfit, StyleSeason } from "@/lib/wardrobe/content";
+import { STYLE_SEASON_OPTIONS } from "@/lib/wardrobe/content";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -31,32 +31,34 @@ export async function POST(req: Request) {
   const prompt: string           = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const mode: "closet_only" | "hybrid" =
     body.mode === "hybrid" ? "hybrid" : "closet_only";
-  const avoidItemIds: string[]   = Array.isArray(body.avoidItemIds) ? body.avoidItemIds : [];
+  const season: StyleSeason =
+    STYLE_SEASON_OPTIONS.includes(body.season) ? body.season : "summer";
+  const avoidOutfits: string[][] =
+    Array.isArray(body.avoidOutfits)
+      ? body.avoidOutfits.filter((o: unknown): o is string[] => Array.isArray(o))
+      : [];
 
   /* ── Stage 1: interpret the request ─────────────────────────── */
   let intent: StylingIntent;
   try {
     const raw = await chatJSON<Omit<StylingIntent, "mode">>({
       system: INTERPRETER_SYSTEM,
-      user: JSON.stringify({ chips, prompt }),
+      user: JSON.stringify({ chips, season, prompt }),
     });
 
-    const target = raw.formalityTarget ?? "casual";
-    const validBand = FORMALITY_BAND[target] ?? [target];
-    const band = Array.isArray(raw.formalityBand)
-      ? raw.formalityBand.filter((f: string) => validBand.includes(f))
-      : validBand;
-
-    const season = Array.isArray(raw.season) ? raw.season : ["all-season"];
-    if (!season.includes("all-season")) season.push("all-season");
+    const weatherOptions = ["hot", "mild", "cold", "rain", "unspecified"];
+    const weather = weatherOptions.includes(raw.weather)
+      ? raw.weather
+      : SEASON_WEATHER_BASELINE[season];
 
     intent = {
-      occasion:        raw.occasion        ?? "everyday",
-      formalityTarget: target,
-      formalityBand:   band.length ? band : validBand,
-      season,
-      vibe:            Array.isArray(raw.vibe)        ? raw.vibe        : [],
-      constraints:     Array.isArray(raw.constraints) ? raw.constraints : [],
+      occasion:              raw.occasion ?? "everyday",
+      formalityTargetScore:  Math.min(10, Math.max(1, Number(raw.formalityTargetScore) || 5)),
+      aesthetic:             Array.isArray(raw.aesthetic)   ? raw.aesthetic   : [],
+      weather:               weather as StylingIntent["weather"],
+      vibe:                  Array.isArray(raw.vibe)        ? raw.vibe        : [],
+      dressCodeNotes:        typeof raw.dressCodeNotes === "string" ? raw.dressCodeNotes : "",
+      constraints:           Array.isArray(raw.constraints) ? raw.constraints : [],
       mode,
     };
   } catch (e) {
@@ -67,36 +69,21 @@ export async function POST(req: Request) {
     );
   }
 
-  /* ── Stage 2: pre-filter wardrobe ───────────────────────────── */
+  /* ── Stage 2: select candidates ──────────────────────────────── */
   const { data: rawItems } = await supabase
     .from("wardrobe_items")
     .select("id, category, name, color, image_url, data, created_at")
     .eq("user_id", user.id);
 
-  const { shortlist: rawShortlist, gaps } = preFilter(
+  const { shortlist, gaps } = selectCandidates(
     (rawItems ?? []) as WardrobeItemRow[],
     intent,
   );
 
-  // Exclude items the user has already seen (try-again flow)
-  const avoidSet = new Set(avoidItemIds);
-  const shortlist = rawShortlist.filter(i => !avoidSet.has(i.id));
-
   /* ── Stage 3: stylist ────────────────────────────────────────── */
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("undertone, hair_tone, palette")
-    .eq("id", user.id)
-    .maybeSingle();
-
   let outfits: Outfit[] = [];
   try {
-    const raw = await callStylist(
-      shortlist,
-      intent,
-      profile?.undertone ?? undefined,
-      (profile?.palette ?? null) as Palette | null,
-    );
+    const raw = await callStylist(shortlist, intent, avoidOutfits);
 
     // Enrich itemIds → OutfitPiece[] for the visual components
     const itemMap = new Map(shortlist.map(i => [i.id, i]));

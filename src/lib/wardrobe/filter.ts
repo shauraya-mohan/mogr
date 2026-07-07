@@ -1,7 +1,7 @@
 /**
- * Stage 2 — deterministic wardrobe pre-filter. No AI, no randomness.
- * Takes the full wardrobe + a StylingIntent → shortlist of ~10–20 items
- * grouped and ranked by category, plus a list of needed-but-empty gaps.
+ * Stage 2 — deterministic candidate selection. No AI, no randomness.
+ * Scores every garment against the intent (soft signals, never gates) and
+ * returns a wide, best-first candidate set for the stylist to reason over.
  */
 
 import type { WardrobeItemRow, GarmentTags, Category } from "./content";
@@ -13,49 +13,28 @@ export interface ScoredItem extends WardrobeItemRow {
 }
 
 export interface FilterResult {
-  /** ~10–20 ranked items the stylist will reason over. */
+  /** Wide, best-first candidate set the stylist will reason over. */
   shortlist: ScoredItem[];
-  /** Category slots needed for the occasion that have zero candidates. */
+  /** Core slots (top/bottom/footwear) with zero candidates at all. */
   gaps: Category[];
 }
 
 /* ── constants ───────────────────────────────────────────────── */
 
-/** Slots required for a complete look — always flagged as gaps when empty. */
+/** Slots required for a complete look — flagged as gaps when the closet has none at all. */
 const CORE_SLOTS: Category[] = ["top", "bottom", "footwear"];
 
-/** Max survivors per category before trimming. 4 × 5 categories = 20 max. */
-const CAP_PER_CATEGORY = 4;
+/** Send at most this many candidates; most closets are smaller → effectively the whole closet. */
+const TOTAL_CAP = 58;
+/** Guarantee this many of each core category survive the cap, so nothing starves. */
+const MIN_PER_CORE = 10;
 
 /* ── helpers ─────────────────────────────────────────────────── */
-function overlaps(a: string[], b: string[]): boolean {
-  return a.some(v => b.includes(v));
-}
 
 /**
- * Returns true if the item's occasion tags make it incompatible with the intent.
- * Uses exclusion logic rather than inclusion — most items should pass unless they
- * are exclusively tagged for a clearly incompatible context.
- */
-function conflictsOccasion(tags: GarmentTags, intent: StylingIntent): boolean {
-  const occ = tags.occasions ?? [];
-  if (occ.length === 0) return false;   // no tag = no restriction
-
-  if (intent.occasion === "active") {
-    // For active requests, only accept items that include "active"
-    return !occ.includes("active");
-  }
-  // For all non-active occasions:
-  // Exclude items that are exclusively tagged for a conflicting context
-  if (occ.every(o => o === "active")) return true;
-  if (intent.occasion !== "formal event" && occ.every(o => o === "formal event")) return true;
-  return false;
-}
-
-/**
- * Returns true if the item's subtype is explicitly excluded by a constraint.
- * Only matches "no <thing>" patterns against the item subtype — colour/weather
- * constraints are left to the stylist.
+ * Returns true if the item's subtype (or a detail tag) is explicitly excluded
+ * by a "no <thing>" constraint. This is the ONLY hard exclusion in this module —
+ * everything else (formality, weather, occasion, aesthetic) is a soft score.
  */
 function violatesConstraints(tags: GarmentTags, constraints: string[]): boolean {
   for (const c of constraints) {
@@ -63,35 +42,39 @@ function violatesConstraints(tags: GarmentTags, constraints: string[]): boolean 
     if (!m) continue;
     const banned = m[1].trim();
     if (tags.subtype?.toLowerCase().includes(banned)) return true;
-    // also check detail tags (e.g. "no hood")
     if (tags.details?.some(d => d.toLowerCase().includes(banned))) return true;
   }
   return false;
 }
 
 /**
- * Numeric score for a garment against the intent.
- * Higher = better fit. Used for ranking within each category.
- *
- * exact occasion match  +3
- * "everyday" fallback   +1
- * exact formality       +2
- * adjacent formality    +1   (in band but not exact target)
- * style/vibe overlap    +1 per matching tag
+ * Numeric score for a garment against the intent. Higher = better fit, but a
+ * low/negative score never excludes an item — it only affects ranking and,
+ * for oversized closets, which items make the cap.
  */
 function scoreItem(tags: GarmentTags, intent: StylingIntent): number {
   let score = 0;
+
+  // Formality proximity — soft, never excludes. A 10-target and a 2-score item
+  // just contributes 0 rather than being removed from the pool.
+  score += Math.max(0, 5 - Math.abs((tags.formalityScore ?? 5) - intent.formalityTargetScore));
+
+  // Weather — a gentle nudge, not a gate. A weather mismatch used to hard-exclude
+  // the whole category (that's what starved the closet); now it costs one point.
+  if (intent.weather !== "unspecified" && tags.weatherCompatibility?.length) {
+    score += tags.weatherCompatibility.includes(intent.weather) ? 2 : -1;
+  }
 
   // Occasion
   if (tags.occasions?.includes(intent.occasion)) score += 3;
   else if (tags.occasions?.includes("everyday")) score += 1;
 
-  // Formality
-  if (tags.formality === intent.formalityTarget) score += 2;
-  else if (intent.formalityBand.includes(tags.formality)) score += 1;
+  // Aesthetic — primary matching signal now that `style` carries up to 3 tags.
+  for (const a of intent.aesthetic) {
+    if (tags.style?.some(s => s.toLowerCase() === a.toLowerCase())) score += 2;
+  }
 
-  // Vibe — the intent vibe tags are free-text ("understated", "layered");
-  // match loosely against the item's style array.
+  // Vibe — loose free-text overlap against style tags.
   for (const v of intent.vibe) {
     if (tags.style?.some(s => s.toLowerCase().includes(v.toLowerCase()) ||
                                v.toLowerCase().includes(s.toLowerCase()))) {
@@ -103,46 +86,41 @@ function scoreItem(tags: GarmentTags, intent: StylingIntent): number {
 }
 
 /* ── main export ──────────────────────────────────────────────── */
-export function preFilter(
+export function selectCandidates(
   items: WardrobeItemRow[],
   intent: StylingIntent,
 ): FilterResult {
-  // Season the filter will accept (item must overlap this OR be "all-season")
-  const targetSeasons = [...intent.season, "all-season"];
+  const scored: ScoredItem[] = items
+    .filter(i => i.data?.isGarment && i.data.category !== "unclear")
+    .filter(i => !violatesConstraints(i.data!, intent.constraints))
+    .map(i => ({ ...i, _score: scoreItem(i.data!, intent) }));
 
-  // Gather and score survivors
-  const candidates: ScoredItem[] = [];
-
-  for (const item of items) {
-    const tags = item.data;
-    if (!tags?.isGarment) continue;
-    if (tags.category === "unclear") continue;
-
-    // Hard filters
-    if (!intent.formalityBand.includes(tags.formality)) continue;
-    if (conflictsOccasion(tags, intent)) continue;
-    if (!overlaps(tags.season ?? [], targetSeasons)) continue;
-    if (violatesConstraints(tags, intent.constraints)) continue;
-
-    candidates.push({ ...item, _score: scoreItem(tags, intent) });
+  let shortlist: ScoredItem[];
+  if (scored.length <= TOTAL_CAP) {
+    shortlist = [...scored].sort((a, b) => b._score - a._score);
+  } else {
+    // Large closet: guarantee MIN_PER_CORE of each core category survives, then
+    // fill the rest of the cap by global score.
+    const byCat = new Map<string, ScoredItem[]>();
+    for (const item of scored) {
+      const cat = item.category ?? "unclear";
+      if (!byCat.has(cat)) byCat.set(cat, []);
+      byCat.get(cat)!.push(item);
+    }
+    const kept = new Set<string>();
+    for (const c of CORE_SLOTS) {
+      (byCat.get(c) ?? [])
+        .sort((a, b) => b._score - a._score)
+        .slice(0, MIN_PER_CORE)
+        .forEach(i => kept.add(i.id));
+    }
+    const guaranteed = scored.filter(i => kept.has(i.id));
+    const rest = scored.filter(i => !kept.has(i.id)).sort((a, b) => b._score - a._score);
+    shortlist = [...guaranteed, ...rest]
+      .slice(0, TOTAL_CAP)
+      .sort((a, b) => b._score - a._score);
   }
 
-  // Group by category, sort by score descending, cap per category
-  const byCategory = new Map<string, ScoredItem[]>();
-  for (const item of candidates) {
-    const cat = item.category ?? "unclear";
-    if (!byCategory.has(cat)) byCategory.set(cat, []);
-    byCategory.get(cat)!.push(item);
-  }
-  for (const [cat, group] of byCategory) {
-    byCategory.set(cat, group.sort((a, b) => b._score - a._score).slice(0, CAP_PER_CATEGORY));
-  }
-
-  // Flatten to shortlist
-  const shortlist: ScoredItem[] = [];
-  for (const group of byCategory.values()) shortlist.push(...group);
-
-  // Gap detection — core slots with zero survivors
   const presentCategories = new Set(shortlist.map(i => i.category));
   const gaps = CORE_SLOTS.filter(slot => !presentCategories.has(slot));
 
