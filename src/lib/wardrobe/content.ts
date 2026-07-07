@@ -219,7 +219,7 @@ export const OCCASIONS = [
   "Athletic",
 ] as const;
 
-export type OutfitSlot = "top" | "bottom" | "footwear" | "layer";
+export type OutfitSlot = "top" | "bottom" | "footwear" | "layer" | "accessory";
 
 export interface OutfitPiece {
   name: string;

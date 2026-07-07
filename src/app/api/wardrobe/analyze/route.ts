@@ -19,6 +19,7 @@ const SLOT_MAP: Record<string, OutfitSlot> = {
   bottom: "bottom",
   footwear: "footwear",
   outerwear: "layer",
+  accessory: "accessory",
 };
 
 export async function POST(req: Request) {

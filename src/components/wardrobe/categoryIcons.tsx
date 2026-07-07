@@ -59,7 +59,7 @@ function FootwearIcon(p: SVGProps<SVGSVGElement>) {
   );
 }
 
-function AccessoryIcon(p: SVGProps<SVGSVGElement>) {
+export function AccessoryIcon(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...p}>
       <circle cx="6.6" cy="13.6" r="3.3" />

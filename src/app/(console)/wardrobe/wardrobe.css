@@ -564,7 +564,7 @@
   max-width: 100%;
 }
 
-/* ---- Visual column: view toggle (mannequin ↔ flat-lay) + stage ---- */
+/* ---- Visual column: view toggle (flat-lay ↔ accessories) + stage ---- */
 .outfit-visual { display: flex; flex-direction: column; gap: 12px; }
 .view-toggle { display: flex; gap: 8px; }
 .view-btn {
@@ -583,31 +583,14 @@
 .view-panel { display: none; }
 .view-panel.is-active { display: block; }
 
-/* mannequin preview — placeholder figure composed from the outfit's colours,
-   or stacked cutout images when real Photoroom imagery is available. */
-.mannequin {
+/* accessories panel — empty state when a look has no accessory suggestions */
+.accessories-empty {
   aspect-ratio: 3 / 4;
-  border-radius: 12px; overflow: hidden;
+  border-radius: 12px;
   background: var(--bone); border: 1px solid var(--ink-08);
-  display: grid; place-items: center; position: relative;
-}
-.mannequin svg { width: 62%; height: auto; }
-.mannequin__label {
-  position: absolute; bottom: 12px; left: 0; right: 0; text-align: center;
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--stone);
-}
-
-/* real-image mannequin — stacked cutout pieces */
-.mannequin--real {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 12px;
-}
-.mannequin__piece {
-  position: absolute;
-  width: 70%; max-height: 80%;
-  object-fit: contain; object-position: center;
-  animation: cutout-reveal 0.45s var(--ease, ease) both;
+  display: grid; place-items: center; padding: 24px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+  color: var(--stone); text-align: center;
 }
 
 .outfit-body { display: flex; flex-direction: column; }

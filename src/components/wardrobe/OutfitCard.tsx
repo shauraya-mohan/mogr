@@ -3,9 +3,9 @@
 import { useState } from "react";
 import type { Outfit } from "@/lib/wardrobe/content";
 import Flatlay from "@/components/wardrobe/Flatlay";
-import Mannequin from "@/components/wardrobe/Mannequin";
+import { AccessoryIcon } from "@/components/wardrobe/categoryIcons";
 
-type View = "flat" | "mannequin";
+type View = "flat" | "accessories";
 
 export default function OutfitCard({
   outfit,
@@ -15,9 +15,12 @@ export default function OutfitCard({
   const [view, setView] = useState<View>("flat");
   const [saved, setSaved] = useState(false);
 
+  const mainPieces = outfit.pieces.filter((p) => p.slot !== "accessory");
+  const accessoryPieces = outfit.pieces.filter((p) => p.slot === "accessory");
+
   return (
     <article className="outfit-card rise">
-      {/* visual column: view toggle (flat-lay ↔ mannequin) + stage */}
+      {/* visual column: view toggle (flat-lay ↔ accessories) + stage */}
       <div className="outfit-visual">
         <div className="view-toggle" role="tablist" aria-label="Preview mode">
           <button
@@ -38,26 +41,25 @@ export default function OutfitCard({
           </button>
           <button
             type="button"
-            className={`view-btn${view === "mannequin" ? " is-active" : ""}`}
-            aria-label="Mannequin view"
+            className={`view-btn${view === "accessories" ? " is-active" : ""}`}
+            aria-label="Accessories view"
             role="tab"
-            aria-selected={view === "mannequin"}
-            onClick={() => setView("mannequin")}
+            aria-selected={view === "accessories"}
+            onClick={() => setView("accessories")}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="6" r="3" />
-              <path d="M12 9v5" />
-              <path d="M6.5 11.5 12 10l5.5 1.5" />
-              <path d="M9 21l1.2-7h3.6L15 21" />
-            </svg>
-            On you
+            <AccessoryIcon />
+            Accessories
           </button>
         </div>
         <div className={`view-panel${view === "flat" ? " is-active" : ""}`}>
-          <Flatlay pieces={outfit.pieces} />
+          <Flatlay pieces={mainPieces} />
         </div>
-        <div className={`view-panel${view === "mannequin" ? " is-active" : ""}`}>
-          <Mannequin pieces={outfit.pieces} />
+        <div className={`view-panel${view === "accessories" ? " is-active" : ""}`}>
+          {accessoryPieces.length > 0 ? (
+            <Flatlay pieces={accessoryPieces} />
+          ) : (
+            <div className="accessories-empty">No accessories suggested for this look.</div>
+          )}
         </div>
       </div>
 
