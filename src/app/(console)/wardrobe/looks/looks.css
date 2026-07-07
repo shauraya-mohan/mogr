@@ -1,0 +1,517 @@
+/* ============================================================
+   mogr — WARDROBE · SAVED LOOKS
+   Layer 1 (grid) + Layer 2 (immersive preview) + the save/edit
+   look modal. Loaded after wardrobe.css — reuses every token, the
+   .btn/.chip/.rise roles, and .empty-state/.page-head from there.
+   Occasion accent colours come from the theme map (--accent on the
+   card / scene) so grid + preview stay in lock-step; all are mixed
+   from Bronze/Ink/Stone/Bone.
+   ============================================================ */
+
+/* ---- LAYER 1 — saved-looks grid ---- */
+.looks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(16px, 2vw, 24px);
+}
+.look-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  border-radius: 16px;
+  background: var(--cloud);
+  border: 1px solid var(--ink-08);
+  box-shadow: 0 1px 2px rgba(27,27,25,0.04);
+  overflow: hidden;
+  text-align: left;
+  transition: transform 0.5s var(--ease), box-shadow 0.5s var(--ease), border-color 0.5s var(--ease);
+}
+.look-card::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: var(--accent, var(--bronze));
+  z-index: 2;
+}
+.look-card::after {
+  content: ""; position: absolute; top: -40px; right: -40px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent, var(--bronze)) 22%, transparent), transparent 70%);
+  opacity: 0.55; pointer-events: none; transition: opacity 0.5s var(--ease);
+}
+.look-card:hover { transform: translateY(-4px); box-shadow: 0 20px 44px -22px rgba(27,27,25,0.42); border-color: var(--ink-12); }
+.look-card:hover::after { opacity: 0.9; }
+.look-card:focus-visible { outline: 2px solid var(--bronze); outline-offset: 3px; }
+
+.look-card__preview {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr);
+  gap: 8px;
+  padding: 14px 14px 6px;
+}
+.look-card__cell { position: relative; border-radius: 10px; overflow: hidden; }
+.look-card__cell--empty {
+  border: 1px dashed var(--ink-12);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.look-ph {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tint,#A39E94) 26%, transparent), color-mix(in srgb, var(--tint,#A39E94) 8%, transparent));
+}
+.look-ph::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(45deg, transparent 0 9px, rgba(27,27,25,0.04) 9px 10px);
+}
+.look-ph__label {
+  position: relative; z-index: 1;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--graphite); opacity: 0.62;
+  text-align: center; padding: 0 4px; text-wrap: balance;
+}
+/* real cutout — the tint wash stays as a frame, the transparent PNG sits on top */
+.look-photo {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tint,#A39E94) 22%, transparent), color-mix(in srgb, var(--tint,#A39E94) 6%, transparent));
+  padding: 12%;
+}
+.look-photo__img {
+  width: 100%; height: 100%;
+  object-fit: contain; object-position: center;
+  animation: cutout-reveal 0.45s var(--ease, ease) both;
+}
+.look-card__foot {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 12px 16px 18px;
+}
+.look-card__name {
+  font-family: var(--font-display); font-weight: 500; font-size: 17px;
+  letter-spacing: -0.01em; margin: 0; line-height: 1.2;
+}
+.look-tag {
+  flex-shrink: 0; margin-top: 2px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--graphite);
+  padding: 4px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, var(--bronze)) 14%, transparent);
+}
+.look-card__hover {
+  position: absolute; z-index: 3; inset: 14px 14px 6px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #F4F2EC;
+  background: rgba(12,11,8,0.52);
+  opacity: 0; transition: opacity 0.4s var(--ease);
+}
+.look-card__hover svg { width: 16px; height: 16px; }
+.look-card:hover .look-card__hover,
+.look-card:focus-visible .look-card__hover { opacity: 1; }
+
+@media (max-width: 860px) { .looks-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px)  { .looks-grid { grid-template-columns: 1fr; } }
+
+/* ---- LAYER 2 — immersive preview (full-bleed overlay) ---- */
+.preview-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: none; opacity: 0;
+  transition: opacity 0.5s var(--ease);
+}
+.preview-overlay.is-mounted { display: block; }
+.preview-overlay.is-open { opacity: 1; }
+
+.scene {
+  position: absolute; inset: 0;
+  background: var(--scene-grad, radial-gradient(120% 90% at 50% 12%, #2A2924, #14140F));
+  transform: scale(1.03);
+  transition: transform 0.6s var(--ease);
+  overflow: hidden;
+}
+.preview-overlay.is-open .scene { transform: scale(1); }
+.scene__light {
+  position: absolute; inset: 0; pointer-events: none;
+  background: var(--scene-light, radial-gradient(60% 45% at 50% 22%, rgba(255,250,240,0.16), transparent 70%));
+}
+.scene__glow {
+  position: absolute; pointer-events: none;
+  width: 60vw; height: 60vw; max-width: 720px; max-height: 720px;
+  left: 50%; top: 40%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent, var(--bronze)) 26%, transparent), transparent 66%);
+  opacity: var(--glow-strength, 0.5);
+}
+.scene__motif {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: var(--motif-strength, 0.07);
+  color: var(--motif-ink, rgba(244,242,236,0.9));
+}
+.scene__motif svg { width: 100%; height: 100%; display: block; }
+
+.scene-top {
+  /* above .scene-info (z-index 6) — its bounding box spans the full
+     right-side height, and would otherwise swallow clicks meant for
+     the close button sitting in that top-right corner. */
+  position: absolute; z-index: 7; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: clamp(18px, 3vw, 28px) clamp(18px, 4vw, 40px);
+}
+.scene-close {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 10px;
+  color: rgba(244,242,236,0.8);
+  border: 1px solid rgba(244,242,236,0.16);
+  transition: color 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+.scene-close:hover { color: #fff; border-color: var(--bronze); }
+.scene-close svg { width: 18px; height: 18px; }
+
+.scene-stage { position: absolute; z-index: 4; left: 0; right: 0; top: 0; bottom: 0; }
+.scene-stage__inner {
+  position: absolute;
+  inset: clamp(78px, 12vh, 116px) clamp(18px, 3vw, 40px) clamp(40px, 8vh, 90px);
+}
+.surface-shadow {
+  position: absolute; left: 50%; bottom: 4%;
+  width: 62%; height: 8%;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(8,8,6,0.45), transparent 72%);
+  filter: blur(10px);
+  opacity: 0.66; pointer-events: none;
+}
+.scene-light .surface-shadow { opacity: 0.32; }
+
+.piece {
+  position: absolute;
+  left: var(--cx, 50%); top: var(--cy, 50%);
+  width: var(--w, 30%);
+  z-index: var(--z, 1);
+  cursor: pointer;
+  transform: translate(-50%, calc(-50% - 22px)) scale(0.96) rotate(var(--rot, 0deg));
+  opacity: 0;
+  transition: opacity 0.5s var(--ease), transform 0.6s cubic-bezier(0.22,0.61,0.36,1);
+}
+.piece.settled {
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  opacity: 1;
+}
+.piece:hover, .piece:focus-visible { z-index: 20; }
+.piece__art {
+  position: relative;
+  width: 100%; aspect-ratio: 1 / 1;
+  border-radius: 16px; overflow: hidden;
+  background:
+    linear-gradient(158deg, color-mix(in srgb, var(--tint,#A39E94) 42%, transparent), color-mix(in srgb, var(--tint,#A39E94) 15%, transparent)),
+    rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 26px 46px -22px rgba(8,8,6,0.78);
+  backdrop-filter: blur(3px);
+  display: grid; place-items: center;
+  transition: box-shadow 0.35s var(--ease), transform 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+.scene-light .piece__art {
+  border-color: rgba(27,27,25,0.14);
+  box-shadow: 0 24px 44px -22px rgba(27,27,25,0.5);
+}
+.piece__art::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(45deg, transparent 0 11px, rgba(255,255,255,0.045) 11px 12px);
+}
+.piece__ph {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: rgba(255,255,255,0.82);
+  text-align: center; padding: 0 10px; text-wrap: balance; position: relative; z-index: 1;
+}
+.scene-light .piece__ph { color: rgba(27,27,25,0.55); }
+/* real cutout — hide the hatch placeholder texture, let the PNG read on the frosted tile */
+.piece--photo .piece__art::after { display: none; }
+.piece__art__img {
+  position: relative; z-index: 1;
+  width: 80%; height: 80%;
+  object-fit: contain; object-position: center;
+  animation: cutout-reveal 0.45s var(--ease, ease) both;
+}
+.piece:hover .piece__art, .piece:focus-visible .piece__art {
+  border-color: color-mix(in srgb, var(--accent, #B0763B) 70%, transparent);
+  box-shadow: 0 26px 50px -20px rgba(8,8,6,0.8), 0 0 26px color-mix(in srgb, var(--accent, #B0763B) 60%, transparent);
+  transform: translateY(-5px);
+}
+.piece__label {
+  position: absolute; top: -16px; left: 50%; transform: translateX(-50%) translateY(4px);
+  z-index: 6; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+  color: #F4F2EC; background: rgba(14,13,10,0.92);
+  padding: 5px 11px; border-radius: 999px;
+  box-shadow: 0 6px 16px -6px rgba(8,8,6,0.6);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.piece:hover .piece__label, .piece:focus-visible .piece__label {
+  opacity: 1; transform: translateX(-50%);
+}
+.piece:focus-visible { outline: none; }
+
+.scene-info {
+  position: absolute; z-index: 6; right: 0; top: 0; bottom: 0;
+  width: min(400px, 40vw);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  gap: 6px; padding: clamp(28px, 4vw, 52px);
+  background: linear-gradient(90deg, transparent, rgba(10,10,8,0.34) 38%, rgba(10,10,8,0.62));
+  color: #F4F2EC;
+}
+.scene-info__eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--accent, #C68A47) 55%, #F4F2EC);
+  margin: 0 0 10px;
+}
+.scene-info__name {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(34px, 4.4vw, 56px); line-height: 0.98; letter-spacing: -0.04em;
+  margin: 0 0 14px; color: #F7F5EF;
+}
+.scene-info__occasion {
+  align-self: flex-start;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(244,242,236,0.9);
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(244,242,236,0.24); margin: 0 0 16px;
+}
+.scene-info__rationale {
+  font-size: 15px; line-height: 1.5; color: rgba(244,242,236,0.85);
+  max-width: 40ch; margin: 0 0 26px; text-wrap: pretty;
+}
+.scene-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn.btn-onscene { background: #F4F2EC; color: #1B1B19; }
+.btn.btn-onscene:hover { background: #fff; }
+.btn.btn-ghost-scene {
+  background: transparent; color: #F4F2EC;
+  border: 1px solid rgba(244,242,236,0.3);
+}
+.btn.btn-ghost-scene:hover { border-color: #C68A47; background: rgba(244,242,236,0.08); }
+
+.delete-confirm {
+  display: none; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; margin-top: 4px;
+  background: rgba(10,10,8,0.55); border: 1px solid rgba(244,242,236,0.16);
+}
+.delete-confirm.is-open { display: inline-flex; }
+.delete-confirm span { font-size: 13px; color: rgba(244,242,236,0.85); }
+.confirm-yes {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+  color: #F2C7A0; padding: 5px 10px; border-radius: 8px;
+  border: 1px solid rgba(242,199,160,0.4);
+}
+.confirm-yes:hover { background: rgba(242,199,160,0.12); }
+.confirm-no {
+  font-family: var(--font-mono); font-size: 12px; color: rgba(244,242,236,0.7);
+  padding: 5px 8px;
+}
+.confirm-no:hover { color: #fff; }
+
+@media (min-width: 861px) {
+  .scene-stage { right: min(400px, 40vw); }
+}
+@media (max-width: 860px) {
+  .scene-info {
+    top: auto; left: 0; width: 100%;
+    background: linear-gradient(180deg, transparent, rgba(10,10,8,0.55) 34%, rgba(8,8,6,0.82));
+    padding: clamp(22px, 6vw, 32px) clamp(20px, 6vw, 32px) clamp(28px, 8vw, 40px);
+  }
+  .scene-stage { bottom: 42%; }
+  .scene-info__rationale { margin-bottom: 20px; }
+}
+
+/* ---- light scenes (everyday / work / active / outdoor) ----
+   Fixed dark ink for contrast on the pale backdrop — hard-coded
+   (not palette vars) so they never invert with the app's dark mode. */
+.scene-light .scene-back { color: #4A473F; }
+.scene-light .scene-back:hover { color: #1B1B19; background: rgba(27,27,25,0.06); }
+.scene-light .scene-close { color: #4A473F; border-color: rgba(27,27,25,0.16); }
+.scene-light .scene-close:hover { color: #1B1B19; border-color: #B07A3C; }
+.scene-light .scene-info {
+  background: linear-gradient(90deg, transparent, rgba(245,243,236,0.72) 34%, rgba(245,243,236,0.94));
+  color: #1B1B19;
+}
+.scene-light .scene-info__eyebrow { color: #96662F; }
+.scene-light .scene-info__name { color: #1B1B19; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+.scene-light .scene-info__occasion { color: #4A473F; border-color: rgba(27,27,25,0.2); }
+.scene-light .scene-info__rationale { color: #4A473F; }
+.scene-light .btn.btn-onscene { background: #1B1B19; color: #F4F2EC; }
+.scene-light .btn.btn-onscene:hover { background: #000; }
+.scene-light .btn.btn-ghost-scene { color: #1B1B19; border-color: rgba(27,27,25,0.24); }
+.scene-light .btn.btn-ghost-scene:hover { border-color: #B07A3C; background: rgba(27,27,25,0.04); }
+.scene-light .delete-confirm { background: rgba(245,243,236,0.86); border-color: rgba(27,27,25,0.16); }
+.scene-light .delete-confirm span { color: #4A473F; }
+.scene-light .confirm-yes { color: #9C5B33; border-color: rgba(156,91,51,0.4); }
+.scene-light .confirm-yes:hover { background: rgba(156,91,51,0.08); }
+.scene-light .confirm-no { color: #7C776C; }
+.scene-light .confirm-no:hover { color: #1B1B19; }
+@media (max-width: 860px) {
+  .scene-light .scene-info {
+    background: linear-gradient(180deg, transparent, rgba(245,243,236,0.78) 30%, rgba(245,243,236,0.96));
+  }
+}
+
+/* ---- SAVE / EDIT LOOK — modal ----
+   A centred dialog: name (doubles as the title), a vertical slot
+   rail, a panel for the active slot's piece + closet grid, then
+   occasion + actions. Every garment thumbnail here — hero and grid
+   alike — uses the same tinted-cutout treatment as the rest of
+   wardrobe (.look-photo / .garment-ph), so this reads as one
+   continuous system rather than a bolted-on form. */
+.lookform-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.lookform-overlay.is-mounted { display: flex; }
+.lookform-backdrop {
+  position: absolute; inset: 0; background: rgba(10,10,8,0.5);
+  opacity: 0; transition: opacity 0.4s var(--ease);
+}
+.lookform-overlay.is-open .lookform-backdrop { opacity: 1; }
+.lookform {
+  position: relative; z-index: 1;
+  width: min(640px, 100%);
+  max-height: 90vh; overflow-y: auto;
+  background: var(--bone); color: var(--ink);
+  border: 1px solid var(--ink-12);
+  border-radius: 20px;
+  padding: clamp(20px, 3.4vw, 30px);
+  transform: translateY(14px) scale(0.98);
+  opacity: 0;
+  transition: transform 0.4s var(--ease), opacity 0.4s var(--ease);
+}
+.lookform-overlay.is-open .lookform { transform: none; opacity: 1; }
+
+.lookform__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.lookform__name {
+  width: 100%;
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(20px, 2.6vw, 26px);
+  letter-spacing: -0.02em; color: var(--ink);
+  background: var(--cloud); border: 1px solid var(--ink-12); border-radius: 11px;
+  padding: 12px 15px; margin-bottom: 20px;
+  transition: border-color 0.35s var(--ease);
+}
+.lookform__name:focus { outline: none; border-color: var(--bronze); }
+.lookform__name::placeholder { font-family: var(--font-display); font-weight: 700; color: var(--stone); }
+.sheet-close {
+  display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px;
+  color: var(--graphite); border: 1px solid var(--ink-12); flex-shrink: 0;
+  transition: color 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+.sheet-close:hover { color: var(--ink); border-color: var(--bronze); }
+.sheet-close svg { width: 18px; height: 18px; }
+
+.lookform__body {
+  display: grid; grid-template-columns: 64px 1fr; gap: 16px;
+  margin-bottom: 22px;
+}
+.lookform__rail { display: flex; flex-direction: column; gap: 8px; }
+.lookform__slot {
+  position: relative;
+  width: 64px; height: 64px; border-radius: 13px;
+  display: grid; place-items: center;
+  background: var(--cloud); border: 1px solid var(--ink-12);
+  color: var(--stone);
+  transition: border-color 0.35s var(--ease), color 0.35s var(--ease);
+}
+.lookform__slot:hover { border-color: var(--stone); color: var(--ink); }
+.lookform__slot.is-filled { color: var(--ink); }
+.lookform__slot.is-active { border-color: var(--bronze); color: var(--ink); }
+.lookform__slot svg { width: 22px; height: 22px; }
+.lookform__slot-dot {
+  position: absolute; right: 6px; bottom: 6px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--tint, var(--bronze));
+  border: 1.5px solid var(--cloud);
+}
+
+.lookform__panel { min-width: 0; }
+.lookform__panel-label {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--stone); margin: 0 0 10px;
+}
+.lookform__hero {
+  position: relative;
+  display: flex; align-items: center; gap: 14px;
+  border-radius: 13px; padding: 12px;
+  background: var(--cloud); border: 1px solid var(--ink-12);
+  margin-bottom: 16px;
+}
+.lookform__hero--empty {
+  border-style: dashed; color: var(--stone);
+}
+.lookform__hero-art {
+  position: relative; flex-shrink: 0;
+  width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tint,#A39E94) 26%, transparent), color-mix(in srgb, var(--tint,#A39E94) 8%, transparent));
+}
+.lookform__hero--empty .lookform__hero-art {
+  background: transparent; border: 1px dashed var(--ink-12); color: var(--stone);
+}
+.lookform__hero-art img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.lookform__hero-art svg { width: 24px; height: 24px; }
+.lookform__hero-copy { min-width: 0; }
+.lookform__hero-name { font-family: var(--font-body); font-size: 15px; color: var(--ink); margin: 0; }
+.lookform__hero-hint { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--stone); margin: 3px 0 0; }
+
+.lookform__grid-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--bronze); margin: 0 0 10px;
+}
+.lookform__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px;
+  max-height: 220px; overflow-y: auto; padding-right: 2px;
+}
+.lookform__item {
+  border-radius: 11px; overflow: hidden; text-align: left;
+  background: var(--cloud); border: 2px solid transparent;
+  transition: border-color 0.3s var(--ease);
+}
+.lookform__item:hover { border-color: var(--ink-12); }
+.lookform__item.is-selected { border-color: var(--bronze); }
+.lookform__item-art {
+  position: relative; display: block; aspect-ratio: 1 / 1;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tint,#A39E94) 24%, transparent), color-mix(in srgb, var(--tint,#A39E94) 7%, transparent));
+}
+.lookform__item-art img { position: absolute; inset: 10%; width: 80%; height: 80%; object-fit: contain; }
+.lookform__item-name {
+  display: block; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--graphite); opacity: 0.75;
+  padding: 6px 7px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lookform__grid-empty {
+  font-family: var(--font-body); font-size: 13px; color: var(--stone);
+  padding: 10px 0;
+}
+
+.field { margin-bottom: 20px; }
+.field__label { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--stone); margin-bottom: 9px; }
+.text-input {
+  width: 100%; font-family: var(--font-body); font-size: 16px; color: var(--ink);
+  background: var(--cloud); border: 1px solid var(--ink-12); border-radius: 11px;
+  padding: 13px 15px; transition: border-color 0.35s var(--ease);
+}
+.text-input:focus { outline: none; border-color: var(--bronze); }
+.occasion-select { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip.is-occasion.is-active { background: var(--bronze); color: #fff; border-color: var(--bronze); }
+.lookform__error {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  color: var(--brick, #8B3A2F); margin: -8px 0 16px;
+}
+.sheet-foot { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 4px; }
+
+@media (max-width: 520px) {
+  .lookform__body { grid-template-columns: 1fr; }
+  .lookform__rail { flex-direction: row; flex-wrap: wrap; }
+}
+
+/* ---- reduced motion / static-reveal failsafe ---- */
+@media (prefers-reduced-motion: reduce) {
+  .preview-overlay, .scene, .form-sheet, .sheet-backdrop { transition: none !important; }
+  .piece { opacity: 1 !important; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) !important; transition: none !important; }
+}
+html.reveal-static .piece { opacity: 1 !important; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) !important; }
+html.reveal-static .preview-overlay.is-mounted { opacity: 1 !important; }
+html.reveal-static .preview-overlay.is-mounted .scene { transform: none !important; }
+html.reveal-static .sheet-overlay.is-mounted .sheet-backdrop { opacity: 1 !important; }
+html.reveal-static .sheet-overlay.is-mounted .form-sheet { transform: none !important; }

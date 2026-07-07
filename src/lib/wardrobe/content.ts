@@ -227,6 +227,8 @@ export interface OutfitPiece {
   slot: OutfitSlot;
   /** Signed URL to the Photoroom ghost-mannequin cutout (transparent PNG). */
   cutoutUrl?: string | null;
+  /** The underlying wardrobe_items row this piece came from, if owned. */
+  itemId?: string;
 }
 
 export interface Outfit {

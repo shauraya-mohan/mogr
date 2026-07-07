@@ -1,19 +1,47 @@
 "use client";
 
-import { useState } from "react";
-import type { Outfit } from "@/lib/wardrobe/content";
+import { useEffect, useState } from "react";
+import type { Outfit, OutfitSlot } from "@/lib/wardrobe/content";
 import Flatlay from "@/components/wardrobe/Flatlay";
 import { AccessoryIcon } from "@/components/wardrobe/categoryIcons";
+import LookFormModal, { type LookFormResult } from "@/components/wardrobe/looks/LookFormModal";
+import { normalizeOccasion, type ClosetPickerItem } from "@/lib/wardrobe/looks";
+import { createLook } from "@/lib/wardrobe/looksStore";
 
 type View = "flat" | "accessories";
 
 export default function OutfitCard({
   outfit,
+  closet,
 }: {
   outfit: Outfit;
+  closet: Record<OutfitSlot, ClosetPickerItem[]>;
 }) {
   const [view, setView] = useState<View>("flat");
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!formOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [formOpen]);
+
+  async function handleSaveLook(result: LookFormResult) {
+    setSaving(true);
+    try {
+      await createLook(result);
+      setSaved(true);
+      setFormOpen(false);
+    } catch (e) {
+      console.error("[outfit] save look failed:", e);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const mainPieces = outfit.pieces.filter((p) => p.slot !== "accessory");
   const accessoryPieces = outfit.pieces.filter((p) => p.slot === "accessory");
@@ -80,11 +108,11 @@ export default function OutfitCard({
           </p>
         ))}
         <div className="outfit-actions">
-          {/* Save look → confirm inline. TODO(backend): POST saved_looks {kind:"wardrobe"}. */}
           <button
             type="button"
             className={`btn${saved ? " btn-secondary" : ""}`}
-            onClick={() => setSaved(true)}
+            onClick={() => setFormOpen(true)}
+            disabled={saved}
           >
             {saved ? (
               <>
@@ -104,6 +132,22 @@ export default function OutfitCard({
           </button>
         </div>
       </div>
+
+      {formOpen && (
+        <LookFormModal
+          mode="create"
+          initial={{
+            name: outfit.title,
+            occasion: normalizeOccasion(outfit.occasion),
+            rationale: outfit.rationale,
+            pieces: outfit.pieces,
+          }}
+          closet={closet}
+          saving={saving}
+          onClose={() => setFormOpen(false)}
+          onSave={handleSaveLook}
+        />
+      )}
     </article>
   );
 }

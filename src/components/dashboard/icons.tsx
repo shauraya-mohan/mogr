@@ -111,13 +111,10 @@ function Routine(props: SVGProps<SVGSVGElement>) {
 }
 
 function Looks(props: SVGProps<SVGSVGElement>) {
-  // Saved looks = a small gallery of framed shots, not a sparkle.
   return (
     <svg {...base} {...props}>
-      <rect x="3.3" y="6.4" width="11.5" height="13.3" rx="2.2" />
-      <rect x="9.2" y="4.3" width="11.5" height="13.3" rx="2.2" />
-      <circle cx="13" cy="8.9" r="1.15" />
-      <path d="M9.6 15.4l3-2.9 2 1.9 3.3-3.2" />
+      <path d="M11 3l1.7 4.3L17 9l-4.3 1.7L11 15l-1.7-4.3L5 9l4.3-1.7z" />
+      <path d="M18 14l.6 1.6 1.6.6-1.6.6L18 19l-.6-1.6-1.6-.6 1.6-.6z" />
     </svg>
   );
 }

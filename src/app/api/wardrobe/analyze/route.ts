@@ -126,6 +126,7 @@ export async function POST(req: Request) {
             tint: item.data?.colors?.[0]?.hex ?? "#888888",
             slot,
             cutoutUrl: item.image_url ? (signedMap.get(item.image_url) ?? null) : null,
+            itemId: item.id,
           };
         })
         .filter((p): p is OutfitPiece => p !== null),

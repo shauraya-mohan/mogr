@@ -6,6 +6,7 @@ import {
   STYLING_STATUS,
   STYLE_SEASON_OPTIONS,
   type Outfit,
+  type OutfitSlot,
   type StyleSeason,
 } from "@/lib/wardrobe/content";
 import { useReveal } from "@/lib/wardrobe/useReveal";
@@ -13,6 +14,12 @@ import OutfitCard from "@/components/wardrobe/OutfitCard";
 import ColourDrawer, { type DrawerPalette } from "@/components/wardrobe/ColourDrawer";
 import UndertoneQuiz from "@/components/wardrobe/UndertoneQuiz";
 import { createClient } from "@/lib/supabase/client";
+import { groupClosetBySlot, type ClosetPickerItem } from "@/lib/wardrobe/looks";
+import { fetchWardrobe } from "@/lib/wardrobe/store";
+
+const EMPTY_CLOSET: Record<OutfitSlot, ClosetPickerItem[]> = {
+  top: [], layer: [], bottom: [], footwear: [], accessory: [],
+};
 
 type Mode = "loading" | "quiz" | "input" | "styling" | "results";
 
@@ -119,9 +126,14 @@ export default function WardrobeStylePage() {
   const [avoidOutfits, setAvoidOutfits] = useState<string[][]>([]);
   const [hybridMode, setHybridMode] = useState(false);
   const [season, setSeason] = useState<StyleSeason>(defaultSeason);
+  const [closet, setCloset] = useState<Record<OutfitSlot, ClosetPickerItem[]>>(EMPTY_CLOSET);
 
   const contentRef = useRef<HTMLDivElement>(null);
   useReveal(contentRef, [mode]);
+
+  useEffect(() => {
+    fetchWardrobe().then((items) => setCloset(groupClosetBySlot(items))).catch(() => {});
+  }, []);
 
   async function fetchPalette() {
     const res = await fetch("/api/wardrobe/palette");
@@ -382,7 +394,7 @@ export default function WardrobeStylePage() {
           </div>
           <div className="outfit-list">
             {outfits.map((o) => (
-              <OutfitCard key={o.title} outfit={o} />
+              <OutfitCard key={o.title} outfit={o} closet={closet} />
             ))}
           </div>
         </section>

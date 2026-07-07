@@ -9,6 +9,7 @@ const ITEM_ROUTES: Record<string, string> = {
   dashboard: "/dashboard",
   scans: "/scans",
   routine: "/routine",
+  "your looks": "/wardrobe/looks",
   wardrobe: "/wardrobe",
 };
 
@@ -19,17 +20,24 @@ export default function ConsoleSidebarNav({
 }) {
   const pathname = usePathname();
 
+  // Longest matching route wins so nested routes with a shared prefix
+  // (e.g. /wardrobe vs /wardrobe/looks) light up only the closer item.
+  const routes = Object.values(ITEM_ROUTES);
+  const matchingRoutes = routes.filter(
+    (r) => pathname === r || pathname.startsWith(`${r}/`)
+  );
+  const closestRoute = matchingRoutes.reduce(
+    (a, b) => (b.length > a.length ? b : a),
+    ""
+  );
+
   return (
     <nav className={`flex-1 space-y-1 ${collapsed ? "px-2" : "px-4"}`}>
       {NAV_ITEMS.map((item) => {
         const route = ITEM_ROUTES[item as keyof typeof ITEM_ROUTES];
         const Icon = NAV_ICONS[item];
 
-        // Active when the pathname is the route or nested under it
-        // (e.g. /wardrobe/style, /wardrobe/scan keep "wardrobe" lit).
-        const active = route
-          ? pathname === route || pathname.startsWith(`${route}/`)
-          : false;
+        const active = Boolean(route) && route === closestRoute;
 
         const shared = `flex w-full items-center rounded-[10px] font-mono text-[14px] tracking-[0.01em] transition-colors ${
           collapsed ? "justify-center py-2.5" : "gap-3 px-3 py-2.5"
