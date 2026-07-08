@@ -342,11 +342,18 @@
 .result-cutout {
   position: relative; aspect-ratio: 3 / 4;
   border-radius: 18px; overflow: hidden;
-  background: var(--cloud); border: 1px solid var(--ink-08);
+  background: var(--cloud); border: 1px solid var(--ink-12);
   box-shadow: 0 1px 2px rgba(27,27,25,0.04);
   display: grid; place-items: center;
 }
-.result-cutout .garment-ph { inset: 20px; }
+.result-cutout .garment-ph {
+  inset: 20px;
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--tint, #A39E94) 34%, transparent),
+      color-mix(in srgb, var(--tint, #A39E94) 14%, transparent));
+}
+.result-cutout .garment-ph__label { opacity: 0.9; }
 .tags-label {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--stone); margin: 0 0 16px;
@@ -698,9 +705,29 @@
 @media (max-width: 860px) {
   .closet-grid { grid-template-columns: repeat(3, 1fr); }
   .result-grid { grid-template-columns: 1fr; }
-  .result-cutout { max-width: 300px; margin-inline: auto; }
+  .result-cutout { max-width: 320px; margin: 0 auto clamp(20px, 4vw, 28px); }
   .outfit-card { grid-template-columns: 1fr; }
-  .flatlay { max-width: 320px; }
+  /* Cap + centre the whole visual column (toggle + flat-lay together) so
+     they share one width instead of the toggle spanning full-width while
+     the flat-lay grid sits narrower and flush-left underneath it. */
+  .outfit-visual { width: 100%; max-width: 320px; margin-inline: auto; }
+
+  /* Multiple suggested outfits become a swipeable, snap-to-card carousel
+     (one look per "slide") instead of a long vertical stack. */
+  .outfit-list {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -4px;
+    padding: 4px 4px 6px;
+  }
+  .outfit-list::-webkit-scrollbar { display: none; }
+  .outfit-list .outfit-card {
+    flex: 0 0 92%;
+    scroll-snap-align: center;
+  }
 }
 @media (max-width: 560px) {
   .closet-grid { grid-template-columns: repeat(2, 1fr); }

@@ -106,7 +106,10 @@ export default function ConsoleShell({
           >
             <MenuIcon />
           </button>
-          <Link href="/" className="font-display text-[20px] font-bold tracking-[-0.03em]">
+          <Link
+            href="/"
+            className="inline-flex items-center font-display text-[20px] font-bold leading-none tracking-[-0.03em]"
+          >
             mogr<span className="text-bronze">.</span>
           </Link>
         </div>
@@ -140,7 +143,7 @@ export default function ConsoleShell({
           <Link
             href="/"
             aria-label="mogr home"
-            className={`font-display font-bold tracking-[-0.03em] text-[#F4F2EC] ${
+            className={`inline-flex items-center font-display font-bold leading-none tracking-[-0.03em] text-[#F4F2EC] ${
               showCollapsed ? "text-[24px]" : "text-[26px]"
             }`}
           >
