@@ -5,9 +5,14 @@ import Link from "next/link";
 import { DASHBOARD, type ReadField } from "@/lib/dashboard/data";
 import { CATEGORY_ICONS } from "@/components/dashboard/icons";
 import EditPreferences from "@/components/dashboard/EditPreferences";
+import StreakCelebration from "@/components/dashboard/StreakCelebration";
 import { createClient } from "@/lib/supabase/client";
 import { useRoutine } from "@/lib/routine/useRoutine";
-import { isDoneToday, type TimeOfDay, type RoutineStep } from "@/lib/routine/content";
+import { isDoneToday, todayISO, type TimeOfDay, type RoutineStep } from "@/lib/routine/content";
+import { useStreak } from "@/lib/streak/useStreak";
+import { fetchLooks } from "@/lib/wardrobe/looksStore";
+import { SLOT_ORDER, type SavedLook } from "@/lib/wardrobe/looks";
+import { pickForSeed, firstSentence } from "@/lib/wardrobe/dailyFit";
 
 /** Built feature routes per category (others stay inert until built). */
 const CATEGORY_HREF: Partial<Record<string, string>> = {
@@ -255,8 +260,27 @@ export default function DashboardPage() {
   }, []);
   const todItems = skinPinned.filter((s) => s.time_of_day === tod);
 
+  // Streak: +1 the first time every pinned routine step is ticked for today;
+  // a missed day resets it back to 1 the next time a full day is locked in.
+  const { days: streakDays, note: streakNote, celebration, dismissCelebration } = useStreak(routineSteps);
+
+  // Today's fit combo: one saved look, picked deterministically per day so
+  // it's stable all day. Clicking it opens that exact look in the looks view.
+  const [looks, setLooks] = useState<SavedLook[] | null>(null);
+  useEffect(() => {
+    fetchLooks().then(setLooks).catch(() => setLooks([]));
+  }, []);
+  const todayLook = looks ? pickForSeed(looks, todayISO()) : null;
+  const fitPieces = todayLook
+    ? SLOT_ORDER.map((slot) => todayLook.pieces.find((p) => p.slot === slot)).filter(
+        (p): p is NonNullable<typeof p> => Boolean(p),
+      )
+    : [];
+
   return (
     <>
+      <StreakCelebration days={streakDays} message={celebration} onClose={dismissCelebration} />
+
       {/* Greeting */}
       <header className="mb-[clamp(24px,4vh,40px)] flex items-start justify-between gap-4">
         <div>
@@ -392,32 +416,70 @@ export default function DashboardPage() {
         <div className="grid gap-[clamp(16px,2vw,22px)] lg:grid-cols-2">
           <section className={`${CARD} flex flex-col justify-center`}>
             <Eyebrow>streak</Eyebrow>
-            <p className="leading-none">
-              <span className="font-display text-[clamp(46px,6vw,68px)] font-bold tracking-[-0.04em] text-ink">
-                {DASHBOARD.streak.days}
-              </span>
-              <span className="ml-2.5 text-[16px] text-graphite">days locked in</span>
-            </p>
-            <p className="mt-3 text-[15px] text-graphite">{DASHBOARD.streak.note}</p>
+            {streakDays === null ? (
+              <>
+                <span className="block h-[clamp(46px,6vw,68px)] w-24 animate-pulse rounded-md bg-[var(--ink-08)]" />
+                <span className="mt-3 block h-[15px] w-40 animate-pulse rounded bg-[var(--ink-08)]" />
+              </>
+            ) : (
+              <>
+                <p className="leading-none">
+                  <span className="font-display text-[clamp(46px,6vw,68px)] font-bold tracking-[-0.04em] text-ink">
+                    {streakDays}
+                  </span>
+                  <span className="ml-2.5 text-[16px] text-graphite">
+                    {streakDays === 1 ? "day locked in" : "days locked in"}
+                  </span>
+                </p>
+                <p className="mt-3 text-[15px] text-graphite">{streakNote}</p>
+              </>
+            )}
           </section>
 
-          <section className={CARD}>
-            <Eyebrow>today&apos;s fit combo</Eyebrow>
-            <ul className="space-y-3.5">
-              {DASHBOARD.fit.items.map((it) => (
-                <li key={it.label} className="flex items-center gap-3">
-                  <span
-                    className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-[var(--ink-12)]"
-                    style={{ background: it.color }}
-                  />
-                  <span className="text-[16px] text-ink">{it.label}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-5 font-mono text-[12px] leading-relaxed text-stone">
-              {DASHBOARD.fit.note}
-            </p>
-          </section>
+          {looks === null ? (
+            <section className={CARD}>
+              <Eyebrow>today&apos;s fit combo</Eyebrow>
+              <ul className="space-y-3.5">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <span className="h-3.5 w-3.5 shrink-0 animate-pulse rounded-full bg-[var(--ink-08)]" />
+                    <span className="h-4 w-2/3 animate-pulse rounded bg-[var(--ink-08)]" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : !todayLook ? (
+            <section className={CARD}>
+              <Eyebrow>today&apos;s fit combo</Eyebrow>
+              <p className="text-[15px] leading-relaxed text-graphite">
+                No looks saved yet.{" "}
+                <Link href="/wardrobe/looks" className="text-bronze transition-colors hover:text-ink">
+                  Save your first fit →
+                </Link>
+              </p>
+            </section>
+          ) : (
+            <Link
+              href={`/wardrobe/looks?look=${todayLook.id}`}
+              className={`${CARD} block transition-colors hover:border-[rgba(176,122,60,0.5)]`}
+            >
+              <Eyebrow>today&apos;s fit combo</Eyebrow>
+              <ul className="space-y-3.5">
+                {fitPieces.map((p) => (
+                  <li key={p.itemId} className="flex items-center gap-3">
+                    <span
+                      className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-[var(--ink-12)]"
+                      style={{ background: p.tint }}
+                    />
+                    <span className="text-[16px] text-ink">{p.name}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 font-mono text-[12px] leading-relaxed text-stone">
+                {firstSentence(todayLook.rationale) || `${todayLook.name} — an easy win today.`}
+              </p>
+            </Link>
+          )}
         </div>
       </div>
     </>

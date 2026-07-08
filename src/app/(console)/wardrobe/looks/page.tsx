@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { OutfitSlot } from "@/lib/wardrobe/content";
 import { THEMES, themeFor, type SavedLook, type ClosetPickerItem, groupClosetBySlot } from "@/lib/wardrobe/looks";
 import { fetchLooks, createLook, updateLook, deleteLook } from "@/lib/wardrobe/looksStore";
@@ -16,6 +17,8 @@ const EMPTY_CLOSET: Record<OutfitSlot, ClosetPickerItem[]> = {
 };
 
 export default function SavedLooksPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [looks, setLooks] = useState<SavedLook[] | null>(null); // null = loading
   const [closet, setCloset] = useState<Record<OutfitSlot, ClosetPickerItem[]>>(EMPTY_CLOSET);
   const [activeFilter, setActiveFilter] = useState("all");
@@ -23,11 +26,23 @@ export default function SavedLooksPage() {
   const [form, setForm] = useState<FormState>(null);
   const [saving, setSaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const openedFromLink = useRef(false);
 
   useEffect(() => {
     fetchLooks().then(setLooks).catch(() => setLooks([]));
     fetchWardrobe().then((items) => setCloset(groupClosetBySlot(items))).catch(() => {});
   }, []);
+
+  // Deep link from the dashboard's "today's fit combo" card (?look=<id>) —
+  // open that look's preview once it's loaded, then clean the URL.
+  useEffect(() => {
+    if (openedFromLink.current || !looks) return;
+    const wanted = searchParams.get("look");
+    if (!wanted) return;
+    openedFromLink.current = true;
+    if (looks.some((l) => l.id === wanted)) setPreviewId(wanted);
+    router.replace("/wardrobe/looks");
+  }, [looks, searchParams, router]);
 
   const all = looks ?? [];
   const previewLook = all.find((l) => l.id === previewId) ?? null;

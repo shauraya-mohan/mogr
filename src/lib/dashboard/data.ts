@@ -6,9 +6,10 @@
  *   - `user`        → Supabase auth + a `profiles` table (name, etc.)
  *   - `read`        → derived from the user's scan results
  *   - `routine`     → a `routines` / `routine_items` table (per-day completion)
- *   - `streak`      → computed from check-in history
  *   - `coaching`    → generated coaching output
- *   - `fit`         → wardrobe + styling engine
+ *
+ * streak and today's fit combo are wired for real — see
+ * lib/streak/useStreak.ts and lib/wardrobe/dailyFit.ts.
  */
 
 export interface RoutineItem {
@@ -28,12 +29,6 @@ export interface CategoryCard {
 export interface ReadField {
   label: string;
   value: string;
-}
-
-export interface FitItem {
-  label: string;
-  /** Swatch colour (hex). */
-  color: string;
 }
 
 export const NAV_ITEMS = [
@@ -62,8 +57,6 @@ export const DASHBOARD = {
     { id: "spf", label: "SPF 50 — don't skip", done: false },
   ] as RoutineItem[],
 
-  streak: { days: 12, note: "Best run yet. Keep it going." },
-
   categories: [
     { key: "skin", title: "Skin", subtitle: "Scan & get your routine" },
     { key: "hair", title: "Hair", subtitle: "Try cuts on your face" },
@@ -73,13 +66,4 @@ export const DASHBOARD = {
 
   coaching:
     "Strong jawline and clear skin — that's working for you. Dialing in consistent SPF and trying a textured crop would sharpen the whole look. Scan your beard to round out your profile.",
-
-  fit: {
-    items: [
-      { label: "Olive overshirt", color: "#6B6B3A" },
-      { label: "White crew tee", color: "#EDEAE0" },
-      { label: "Indigo straight jeans", color: "#27324E" },
-    ] as FitItem[],
-    note: "Earthy tones suit you — easy win today.",
-  },
 } as const;
