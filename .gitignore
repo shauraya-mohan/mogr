@@ -26,3 +26,6 @@ next-env.d.ts
 /.agents/
 /skills-lock.json
 /.claude/skills/impeccable
+
+# local HTTPS dev certs (mkcert self-signed, machine-specific)
+/certificates/

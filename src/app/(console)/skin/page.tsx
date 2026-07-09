@@ -342,7 +342,7 @@ export default function SkinPage() {
 
       {/* Scan + skin type */}
       <div className="grid items-stretch gap-[clamp(16px,2.5vw,24px)] lg:grid-cols-2">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-[#2C2B27]">
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[20px] border border-[var(--ink-12)] bg-[#2C2B27]">
           {scanUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={scanUrl} alt="Your scan" className="absolute inset-0 h-full w-full object-cover" />
