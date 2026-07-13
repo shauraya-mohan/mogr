@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { visionJSON } from "@/lib/openai";
 import { ghostMannequin } from "@/lib/wardrobe/photoroom";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { TAG_SYSTEM, TAG_USER } from "@/lib/wardrobe/tagging";
 import type { GarmentTags } from "@/lib/wardrobe/content";
 
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // No cache here — every call spends a Photoroom cutout + a vision tag call.
+  // Headroom is wide since building out a closet means dozens of these in a row.
+  if (!(await withinRateLimit(supabase, "wardrobe-process", 60, 3600))) return rateLimitedResponse();
 
   const form = await req.formData().catch(() => null);
   const image = form?.get("image");

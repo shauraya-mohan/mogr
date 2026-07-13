@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { GarmentColor } from "@/lib/wardrobe/content";
 
 /**
@@ -25,12 +26,24 @@ export default function GarmentCard({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <article className="garment-card rise" tabIndex={0} data-rise-delay={riseDelay.toFixed(2)}>
       <div className="garment-card__stage">
         {cutoutUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="cutout" src={cutoutUrl} alt={name} />
+          <>
+            {!loaded && <div className="skeleton" />}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className={`cutout cutout--fade${loaded ? " is-loaded" : ""}`}
+              src={cutoutUrl}
+              alt={name}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+            />
+          </>
         ) : (
           <div className="garment-ph">
             <span className="garment-ph__label">no image</span>

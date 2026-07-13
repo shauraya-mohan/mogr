@@ -746,6 +746,10 @@
   width: calc(100% - 28px); height: calc(100% - 28px);
   object-fit: contain;
 }
+/* Fade in once loaded instead of popping in; the shimmer skeleton behind it
+   (same one used for the whole-grid loading state) covers the wait. */
+.cutout--fade { opacity: 0; transition: opacity 0.4s var(--ease); }
+.cutout--fade.is-loaded { opacity: 1; }
 .result-cutout .cutout {
   position: absolute; inset: 20px;
   width: calc(100% - 40px); height: calc(100% - 40px);
@@ -847,4 +851,5 @@
   .rise { opacity: 1 !important; transform: none !important; transition: none !important; }
   .skeleton { animation: none; }
   .viewport__hint .rec { animation: none; opacity: 1; }
+  .cutout--fade { transition: none; opacity: 1; }
 }

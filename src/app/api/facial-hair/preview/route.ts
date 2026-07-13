@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { editImage } from "@/lib/openai";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { previewPrompt } from "@/lib/facial-hair/content";
 
 export const runtime = "nodejs";
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
       .createSignedUrl(style.preview_path, SIGNED_TTL);
     return NextResponse.json({ url: signed?.signedUrl, cached: true });
   }
+
+  // Image-gen previews are the slowest, priciest call in the app — tightest limit.
+  if (!(await withinRateLimit(supabase, "facial-hair-preview", 20, 3600))) return rateLimitedResponse();
 
   // Resolve the source selfie (the one tied to this style, else latest).
   let selfiePath: string | null = null;

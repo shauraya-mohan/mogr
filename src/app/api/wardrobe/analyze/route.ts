@@ -8,6 +8,7 @@ import {
 } from "@/lib/wardrobe/interpreter";
 import { selectCandidates } from "@/lib/wardrobe/filter";
 import { callStylist } from "@/lib/wardrobe/stylist";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import type { WardrobeItemRow, OutfitPiece, OutfitSlot, Outfit, StyleSeason } from "@/lib/wardrobe/content";
 import { STYLE_SEASON_OPTIONS } from "@/lib/wardrobe/content";
 
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Two LLM calls per request (interpreter + stylist), no caching — "try again"
+  // in the UI is a deliberate re-roll, so this can't be cache-gated like the others.
+  if (!(await withinRateLimit(supabase, "wardrobe-analyze", 30, 3600))) return rateLimitedResponse();
 
   const body = await req.json().catch(() => ({}));
   const chips: string[]          = Array.isArray(body.chips)  ? body.chips  : [];

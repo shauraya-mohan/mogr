@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { visionJSON, chatJSON } from "@/lib/openai";
 import { canonical } from "@/lib/cacheKey";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import {
   SKIN_ANALYSIS_PROMPT,
   SKIN_ROUTINE_PROMPT,
@@ -104,6 +105,10 @@ export async function POST(req: Request) {
   ) {
     return NextResponse.json({ read: cached.read, routine: cached.routine, cached: true });
   }
+
+  // Only requests that actually hit the model (cache misses) spend budget —
+  // 3 vision runs + 1 routine call per request, the priciest single route.
+  if (!(await withinRateLimit(supabase, "skin-analyze", 8, 3600))) return rateLimitedResponse();
 
   // Download the (already gated/cropped) image.
   const { data: file, error: dlErr } = await supabase.storage

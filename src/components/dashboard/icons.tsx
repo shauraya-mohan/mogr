@@ -119,22 +119,10 @@ function Looks(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function Progress(props: SVGProps<SVGSVGElement>) {
-  // Ascending bars read as progress more plainly than a trend squiggle.
-  return (
-    <svg {...base} {...props}>
-      <path d="M4 20.5V13" />
-      <path d="M12 20.5V9" />
-      <path d="M20 20.5V5" />
-    </svg>
-  );
-}
-
 export const NAV_ICONS: Record<string, Icon> = {
   dashboard: Dashboard,
   scans: Scans,
   routine: Routine,
   "your looks": Looks,
   wardrobe: WardrobeIcon,
-  progress: Progress,
 };

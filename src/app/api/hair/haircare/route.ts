@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chatJSON } from "@/lib/openai";
 import { canonical } from "@/lib/cacheKey";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { HAIRCARE_SYSTEM_PROMPT, type HaircareAnswers } from "@/lib/hair/content";
 
 export const runtime = "nodejs";
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
   if (prev?.tips && prev.answers && canonical(prev.answers) === canonical(answers)) {
     return NextResponse.json({ tips: prev.tips, cached: true });
   }
+
+  if (!(await withinRateLimit(supabase, "hair-haircare", 20, 3600))) return rateLimitedResponse();
 
   let tips: HaircareTips;
   try {

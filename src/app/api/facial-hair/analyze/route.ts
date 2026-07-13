@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { visionJSON } from "@/lib/openai";
 import { canonical } from "@/lib/cacheKey";
+import { withinRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { FACIAL_HAIR_SYSTEM_PROMPT, type Questionnaire } from "@/lib/facial-hair/content";
 
 export const runtime = "nodejs";
@@ -78,6 +79,8 @@ export async function POST(req: Request) {
       cached: true,
     });
   }
+
+  if (!(await withinRateLimit(supabase, "facial-hair-analyze", 15, 3600))) return rateLimitedResponse();
 
   // Download the selfie → data URL for the vision model.
   const { data: file, error: dlErr } = await supabase.storage

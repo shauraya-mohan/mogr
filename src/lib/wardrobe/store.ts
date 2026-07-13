@@ -92,18 +92,25 @@ export async function fetchWardrobe(): Promise<
   if (error) throw error;
 
   const rows = (data ?? []) as WardrobeItemRow[];
-  return Promise.all(
-    rows.map(async (row) => {
-      let cutoutUrl: string | null = null;
-      if (row.image_url) {
-        const { data: signed } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(row.image_url, SIGNED_TTL);
-        cutoutUrl = signed?.signedUrl ?? null;
-      }
-      return { ...row, cutoutUrl };
-    })
-  );
+
+  // One batched call for the whole closet instead of one signed-url round
+  // trip per garment — a 40-item closet used to fire 40 sequential requests
+  // before a single image could start loading.
+  const paths = [...new Set(rows.map((r) => r.image_url).filter((p): p is string => Boolean(p)))];
+  const signedMap = new Map<string, string>();
+  if (paths.length > 0) {
+    const { data: signedResults } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrls(paths, SIGNED_TTL);
+    signedResults?.forEach((r, i) => {
+      if (r.signedUrl) signedMap.set(paths[i], r.signedUrl);
+    });
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    cutoutUrl: row.image_url ? (signedMap.get(row.image_url) ?? null) : null,
+  }));
 }
 
 /** Remove a garment (row + its cutout object). */

@@ -37,7 +37,6 @@ export const NAV_ITEMS = [
   "routine",
   "your looks",
   "wardrobe",
-  "progress",
 ] as const;
 
 export const DASHBOARD = {
