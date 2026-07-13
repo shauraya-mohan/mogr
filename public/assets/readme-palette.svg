@@ -1,0 +1,36 @@
+<svg width="1200" height="150" viewBox="0 0 1200 150" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="150" fill="#F4F2EC"/>
+
+  <g font-family="'Space Mono', ui-monospace, monospace">
+    <!-- ink -->
+    <rect x="20" y="20" width="160" height="64" rx="12" fill="#1B1B19"/>
+    <text x="20" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">INK</text>
+    <text x="20" y="122" font-size="10" fill="#A39E94">#1B1B19</text>
+
+    <!-- graphite -->
+    <rect x="220" y="20" width="160" height="64" rx="12" fill="#3A3A36"/>
+    <text x="220" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">GRAPHITE</text>
+    <text x="220" y="122" font-size="10" fill="#A39E94">#3A3A36</text>
+
+    <!-- stone -->
+    <rect x="420" y="20" width="160" height="64" rx="12" fill="#A39E94"/>
+    <text x="420" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">STONE</text>
+    <text x="420" y="122" font-size="10" fill="#A39E94">#A39E94</text>
+
+    <!-- bronze — the one accent -->
+    <rect x="620" y="20" width="160" height="64" rx="12" fill="#B07A3C"/>
+    <circle cx="632" cy="32" r="3.5" fill="#F4F2EC"/>
+    <text x="620" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">BRONZE</text>
+    <text x="620" y="122" font-size="10" fill="#A39E94">#B07A3C · the accent</text>
+
+    <!-- bone -->
+    <rect x="820" y="20" width="160" height="64" rx="12" fill="#F4F2EC" stroke="#1B1B19" stroke-opacity="0.12"/>
+    <text x="820" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">BONE</text>
+    <text x="820" y="122" font-size="10" fill="#A39E94">#F4F2EC</text>
+
+    <!-- cloud -->
+    <rect x="1020" y="20" width="160" height="64" rx="12" fill="#FBFAF6" stroke="#1B1B19" stroke-opacity="0.12"/>
+    <text x="1020" y="106" font-size="12" letter-spacing="1.5" fill="#1B1B19">CLOUD</text>
+    <text x="1020" y="122" font-size="10" fill="#A39E94">#FBFAF6</text>
+  </g>
+</svg>
