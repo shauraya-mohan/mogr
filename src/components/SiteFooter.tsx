@@ -1,5 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
-import { FOOTER_COLUMNS } from "@/lib/content";
+import { FOOTER_COLUMNS, FOOTER_CONTACT } from "@/lib/content";
 
 /**
  * Footer — built entirely with Tailwind utilities + brand tokens. This is the
@@ -7,6 +10,18 @@ import { FOOTER_COLUMNS } from "@/lib/content";
  * from the @theme tokens (so it tracks dark mode automatically).
  */
 export default function SiteFooter() {
+  const [copied, setCopied] = useState(false);
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText(FOOTER_CONTACT.email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard permission denied or unavailable — the mailto link still works.
+    }
+  }
+
   return (
     <footer
       className="bg-bone border-t border-[var(--ink-12)] py-[clamp(56px,9vh,110px)]"
@@ -14,7 +29,7 @@ export default function SiteFooter() {
       data-screen-label="footer"
     >
       <div className="container-page">
-        <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,0.6fr))] gap-[clamp(28px,5vw,64px)] items-start max-[900px]:grid-cols-2 max-[620px]:grid-cols-1">
+        <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)_minmax(0,0.9fr)] gap-[clamp(28px,5vw,64px)] items-start max-[900px]:grid-cols-2 max-[620px]:grid-cols-1">
           <div className="max-[900px]:col-span-full">
             {/* Footer logo: full lockup, larger. Do not redraw. */}
             <Image
@@ -57,6 +72,38 @@ export default function SiteFooter() {
               </ul>
             </div>
           ))}
+
+          <div>
+            <h5 className="flex items-center gap-2 mb-4 font-mono text-[12px] tracking-[0.14em] uppercase text-stone">
+              <span className="w-[5px] h-[5px] rounded-full bg-bronze" />
+              {FOOTER_CONTACT.heading}
+            </h5>
+            <a
+              className="font-mono text-[13px] text-graphite transition-colors duration-[400ms] hover:text-bronze break-all"
+              href={`mailto:${FOOTER_CONTACT.email}`}
+            >
+              {FOOTER_CONTACT.email}
+            </a>
+            <button
+              type="button"
+              onClick={copyEmail}
+              className="mt-[11px] flex items-center gap-[7px] font-mono text-[12px] tracking-[0.04em] text-stone transition-colors duration-[400ms] hover:text-bronze"
+            >
+              {copied ? (
+                <svg className="w-[13px] h-[13px] shrink-0 text-bronze" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 12.5l5 5L20 6" />
+                </svg>
+              ) : (
+                <svg className="w-[13px] h-[13px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="8" y="8" width="12" height="12" rx="2" />
+                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                </svg>
+              )}
+              <span className={copied ? "text-bronze" : undefined}>
+                {copied ? "Copied" : "Copy email"}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="mt-[clamp(40px,7vh,72px)] pt-[22px] border-t border-[var(--ink-12)] flex justify-between items-center gap-4 flex-wrap font-mono text-[12px] tracking-[0.04em] text-stone">

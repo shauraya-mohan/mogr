@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Button from "./Button";
-import ThemeToggle from "./ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Sticky header: transparent → bone + hairline once scrolled past the hero.
- * The scrolled state (.is-scrolled) is driven by the motion layer via
- * window.__mogrHeaderUpdate (Lenis scroll, with a native-scroll fallback
- * under reduced motion). This component is just structure + theme toggle.
+ * Sticky header: transparent full-width bar → a floating rounded pill once
+ * scrolled past the hero. The scrolled state (.is-scrolled) is driven by the
+ * motion layer via window.__mogrHeaderUpdate (Lenis scroll, with a
+ * native-scroll fallback under reduced motion) — see globals.css for the
+ * shape/shadow transition. The landing page always reads as the dark theme
+ * (see .hero / .site-header overrides in globals.css), so there's no theme
+ * toggle here — it previously let a light-mode flip bleed into sections that
+ * are meant to stay fixed-dark.
  *
  * Auth-aware navigation:
  * - Logged out → "log in" link + "start scan" (→ /scan, middleware redirects to /login)
@@ -95,7 +98,6 @@ export default function SiteHeader() {
               </Link>
             </>
           )}
-          <ThemeToggle />
           <Button href="/scan" size="sm">
             start scan
           </Button>

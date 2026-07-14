@@ -215,24 +215,40 @@
   .hero-textlink:hover::after { transform: scaleX(1); }
 
   /* ---- Sticky header ---- */
+  /* Full-width transparent bar → a floating rounded pill once scrolled past
+     the hero (top/margin/radius/shadow all transition together). */
   .site-header {
     position: fixed;
-    inset: 0 0 auto 0;
+    top: 0; left: 0; right: 0;
     z-index: 100;
     height: var(--header-h);
+    margin: 0;
     display: flex;
     align-items: center;
     background: transparent;
-    border-bottom: 1px solid transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    box-shadow: 0 16px 40px -14px rgba(0,0,0,0), 0 2px 10px -2px rgba(0,0,0,0);
     transition: background var(--dur) var(--ease),
                 border-color var(--dur) var(--ease),
-                backdrop-filter var(--dur) var(--ease);
+                backdrop-filter var(--dur) var(--ease),
+                top var(--dur) var(--ease),
+                margin var(--dur) var(--ease),
+                border-radius var(--dur) var(--ease),
+                box-shadow var(--dur) var(--ease);
   }
   .site-header.is-scrolled {
+    top: 14px;
+    margin: 0 clamp(14px, 3vw, 32px);
+    border-radius: 20px;
     background: var(--bone-70);
+    border-color: var(--ink-12);
+    box-shadow: 0 16px 40px -14px rgba(0,0,0,0.4), 0 2px 10px -2px rgba(0,0,0,0.16);
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
-    border-bottom-color: var(--ink-12);
+  }
+  @media (max-width: 620px) {
+    .site-header.is-scrolled { margin: 0 10px; border-radius: 16px; }
   }
   .brand { display: flex; align-items: center; position: relative; }
   .brand img { height: 30px; width: auto; }
@@ -241,6 +257,28 @@
   .logo-dark { display: none; }
   [data-theme="dark"] .logo-light { display: none; }
   [data-theme="dark"] .logo-dark { display: block; }
+
+  /* The landing hero + its header always read as the dark theme, independent
+     of the site-wide toggle (which lives only on console/auth pages now) —
+     re-declare the dark tokens inside each scope so every var()/utility
+     underneath flips, and mirror the two attribute-selector rules (logo
+     swap, button hover) that don't key off a token and so can't be faked by
+     a variable override alone. */
+  [data-theme="light"] .site-header {
+    --ink:      #F1EEE6;
+    --graphite: #B4AFA3;
+    --stone:    #6E6A60;
+    --bronze:   #C68A47;
+    --bone:     #121210;
+    --cloud:    #1B1B18;
+    --ink-90:   rgba(8,8,7,0.92);
+    --ink-12:   rgba(241,238,230,0.13);
+    --ink-08:   rgba(241,238,230,0.07);
+    --bone-70:  rgba(18,18,16,0.72);
+  }
+  [data-theme="light"] .site-header .btn:hover { background: #FFFDF7; }
+  [data-theme="light"] .site-header .logo-light { display: none; }
+  [data-theme="light"] .site-header .logo-dark { display: block; }
 
   /* theme toggle (sun / moon) */
   .theme-toggle {
@@ -264,7 +302,26 @@
   .hero {
     padding-top: calc(var(--header-h) + clamp(48px, 12vh, 132px));
     padding-bottom: clamp(36px, 7vh, 72px);
+    background: var(--bone);
+    color: var(--ink);
   }
+  /* The hero always reads as the dark theme, independent of the site-wide
+     toggle — re-declare the dark values inside .hero's scope so every token
+     utility/var() underneath it (headline, sub, button, text link) flips
+     without touching the toggle or any other section. */
+  [data-theme="light"] .hero {
+    --ink: #F1EEE6;
+    --graphite: #B4AFA3;
+    --stone: #6E6A60;
+    --bronze: #C68A47;
+    --bone: #121210;
+    --cloud: #1B1B18;
+    --ink-90: rgba(8,8,7,0.92);
+    --ink-12: rgba(241,238,230,0.13);
+    --ink-08: rgba(241,238,230,0.07);
+    --bone-70: rgba(18,18,16,0.72);
+  }
+  [data-theme="light"] .hero .btn:hover { background: #FFFDF7; }
   .hero .eyebrow { margin-bottom: clamp(20px, 4vh, 36px); }
   .hero-headline {
     margin: 0;

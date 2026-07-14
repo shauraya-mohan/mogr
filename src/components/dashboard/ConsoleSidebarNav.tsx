@@ -11,6 +11,9 @@ const ITEM_ROUTES: Record<string, string> = {
   routine: "/routine",
   "your looks": "/wardrobe/looks",
   wardrobe: "/wardrobe",
+  skin: "/skin",
+  hair: "/hair",
+  "facial hair": "/facial-hair",
 };
 
 export default function ConsoleSidebarNav({

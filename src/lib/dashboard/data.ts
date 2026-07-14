@@ -37,6 +37,9 @@ export const NAV_ITEMS = [
   "routine",
   "your looks",
   "wardrobe",
+  "skin",
+  "hair",
+  "facial hair",
 ] as const;
 
 export const DASHBOARD = {

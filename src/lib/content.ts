@@ -137,21 +137,9 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
       { label: "Dashboard", href: "/dashboard" },
     ],
   },
-  {
-    heading: "Company",
-    links: [
-      { label: "About", href: "#about" },
-      { label: "Careers", href: "#careers" },
-      { label: "Press", href: "#press" },
-      { label: "Contact", href: "#contact" },
-    ],
-  },
-  {
-    heading: "Legal",
-    links: [
-      { label: "Privacy", href: "#privacy" },
-      { label: "Terms", href: "#terms" },
-      { label: "Your data", href: "#data" },
-    ],
-  },
 ];
+
+export const FOOTER_CONTACT = {
+  heading: "Contact",
+  email: "trymogr@gmail.com",
+};

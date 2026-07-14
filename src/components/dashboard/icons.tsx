@@ -125,4 +125,7 @@ export const NAV_ICONS: Record<string, Icon> = {
   routine: Routine,
   "your looks": Looks,
   wardrobe: WardrobeIcon,
+  skin: SkinIcon,
+  hair: HairIcon,
+  "facial hair": FacialHairIcon,
 };
