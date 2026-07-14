@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import ConsoleSidebarNav from "@/components/dashboard/ConsoleSidebarNav";
 import ConsoleProfileMenu from "@/components/dashboard/ConsoleProfileMenu";
 import SidebarThemeToggle from "@/components/dashboard/SidebarThemeToggle";
@@ -53,6 +53,17 @@ export default function ConsoleShell({
   const [collapsed, setCollapsed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // The hero page forces dark regardless of preference (it has no light
+  // mode); restore the console's actual saved theme on the way back in.
+  useLayoutEffect(() => {
+    try {
+      const saved = localStorage.getItem("mogr-theme");
+      document.documentElement.setAttribute("data-theme", saved === "light" ? "light" : "dark");
+    } catch {
+      /* storage may be unavailable — non-fatal */
+    }
+  }, []);
 
   useEffect(() => {
     try {

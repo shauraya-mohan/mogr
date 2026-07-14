@@ -31,11 +31,13 @@ export const metadata: Metadata = {
 };
 
 /* No-flash theme init — runs before first paint. Dark is the default;
-   only a saved "light" preference overrides it. */
+   only a saved "light" preference overrides it — except on the marketing
+   site (/), which has no light mode and always stays dark. */
 const THEME_INIT = `(function () {
   try {
     var saved = localStorage.getItem("mogr-theme");
-    document.documentElement.setAttribute("data-theme", saved === "light" ? "light" : "dark");
+    var isHero = location.pathname === "/";
+    document.documentElement.setAttribute("data-theme", !isHero && saved === "light" ? "light" : "dark");
   } catch (e) {}
 })();`;
 

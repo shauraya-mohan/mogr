@@ -1,3 +1,4 @@
+import ForceDarkTheme from "@/components/ForceDarkTheme";
 import SiteHeader from "@/components/SiteHeader";
 import Hero from "@/components/Hero";
 import HeroVideo from "@/components/HeroVideo";
@@ -12,6 +13,7 @@ import Motion from "@/components/Motion";
 export default function Home() {
   return (
     <>
+      <ForceDarkTheme />
       <SiteHeader />
       <main id="top">
         <Hero />
