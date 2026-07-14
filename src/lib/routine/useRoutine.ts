@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { todayISO, type RoutineStep, type RoutineSource, type TimeOfDay } from "./content";
 
@@ -12,6 +12,10 @@ const COLS = "id, source, label, note, time_of_day, sort_order, pinned, complete
  */
 export function useRoutine() {
   const [steps, setSteps] = useState<RoutineStep[] | null>(null);
+  // Chains reorder() writes so rapid taps (the mobile up/down stepper fires
+  // one reorder per tap) can't land on the DB out of network-response order
+  // and clobber a newer order with a stale one.
+  const reorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -123,11 +127,15 @@ export function useRoutine() {
       return prev.map((s) => (idSet.has(s.id) ? reordered[k++] : s));
     });
     const supabase = createClient();
-    await Promise.all(
-      next.map(({ id, sort_order }) =>
-        supabase.from("routine_steps").update({ sort_order }).eq("id", id),
+    const run = reorderQueueRef.current.then(() =>
+      Promise.all(
+        next.map(({ id, sort_order }) =>
+          supabase.from("routine_steps").update({ sort_order }).eq("id", id),
+        ),
       ),
     );
+    reorderQueueRef.current = run;
+    await run;
   }, []);
 
   return { steps, add, addMany, remove, updateLabel, toggleDone, togglePinned, reorder, reload: load };
